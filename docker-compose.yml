@@ -4,9 +4,16 @@ services:
     ports:
       - "8061:8061"
     env_file: .env
+    environment:
+      RADAR_DB_PATH: /app/data/radar.db
+    volumes:
+      - radar-data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8061/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  radar-data:

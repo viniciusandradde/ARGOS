@@ -27,3 +27,6 @@ AGENTS.md
 .idea/
 .vscode/
 *.swp
+
+# Radar Brasil — local database
+data/radar.db*

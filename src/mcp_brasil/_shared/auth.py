@@ -2,7 +2,7 @@
 
 Selects the auth provider based on environment variables:
 
-- ``MCP_BRASIL_AUTH_MODE``: ``none`` | ``static`` | ``oauth`` | ``multi``
+- ``MCP_BRASIL_AUTH_MODE``: ``none`` | ``static`` | ``oauth`` | ``multi`` | ``radar``
 - ``MCP_BRASIL_OAUTH_PROVIDER``: ``azure`` | ``google`` | ``github`` | ``workos``
 
 Usage::
@@ -53,8 +53,15 @@ def build_auth() -> Any | None:
     if mode == "multi":
         return _build_multi()
 
+    if mode == "radar":
+        from mcp_brasil.radar import build_verifier
+
+        logger.info("Auth enabled: Radar Brasil (per-user API keys + subscription check)")
+        return build_verifier()
+
     raise AuthConfigError(
-        f"Invalid MCP_BRASIL_AUTH_MODE={mode!r}. Expected one of: none, static, oauth, multi."
+        f"Invalid MCP_BRASIL_AUTH_MODE={mode!r}. "
+        "Expected one of: none, static, oauth, multi, radar."
     )
 
 

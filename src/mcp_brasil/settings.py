@@ -30,7 +30,8 @@ TOOL_SEARCH: str = os.environ.get("MCP_BRASIL_TOOL_SEARCH", "bm25")
 MCP_BRASIL_API_TOKEN: str | None = os.environ.get("MCP_BRASIL_API_TOKEN") or None
 
 # --- Authentication Strategy ---
-# Modes: "none" | "static" | "oauth" | "multi"
+# Modes: "none" | "static" | "oauth" | "multi" | "radar"
+# "radar" = Radar Brasil commercial mode (users, API keys, plans, Mercado Pago)
 # Auto-detect (backward compat): if unset, defaults to "static" when
 # MCP_BRASIL_API_TOKEN is set, else "none".
 _AUTH_MODE_RAW: str = os.environ.get("MCP_BRASIL_AUTH_MODE", "").strip().lower()
@@ -73,6 +74,24 @@ GITHUB_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("GITHUB_REQUIRE
 # WorkOS (AuthKit)
 AUTHKIT_DOMAIN: str = os.environ.get("AUTHKIT_DOMAIN", "").strip()
 AUTHKIT_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("AUTHKIT_REQUIRED_SCOPES", ""))
+
+# --- Radar Brasil (MCP_BRASIL_AUTH_MODE=radar) ---
+RADAR_DB_PATH: str = os.environ.get("RADAR_DB_PATH", "data/radar.db")
+# Signs portal sessions. Generate with:
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+RADAR_SECRET_KEY: str = os.environ.get("RADAR_SECRET_KEY", "")
+# JSON list overriding the default plans (see mcp_brasil/radar/planos.py)
+RADAR_PLANOS: str = os.environ.get("RADAR_PLANOS", "")
+# Days of access kept after the paid period ends (covers late renewals)
+RADAR_CARENCIA_DIAS: int = int(os.environ.get("RADAR_CARENCIA_DIAS", "3"))
+RADAR_SESSAO_HORAS: int = int(os.environ.get("RADAR_SESSAO_HORAS", "72"))
+# Free trial granted on sign-up (0 = no trial)
+RADAR_TESTE_DIAS: int = int(os.environ.get("RADAR_TESTE_DIAS", "0"))
+RADAR_PLANO_TESTE: str = os.environ.get("RADAR_PLANO_TESTE", "essencial")
+
+# Mercado Pago — https://www.mercadopago.com.br/developers/panel/app
+MERCADOPAGO_ACCESS_TOKEN: str = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
+MERCADOPAGO_WEBHOOK_SECRET: str = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "")
 
 # --- LLM Discovery (recomendar_tools) ---
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")

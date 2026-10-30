@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar Brasil</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #16202c; --muted: #5b6776; --line: #dde2e8;
+    --brand: #0b6e4f; --brand-2: #0a5a41; --accent: #f2c230; --danger: #b42318; --ok: #0b6e4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f151c; --card: #17202a; --text: #e8edf2; --muted: #9aa6b4; --line: #2a3644;
+      --brand: #2fbf8a; --brand-2: #27a676; --accent: #f2c230; --danger: #f97066; --ok: #2fbf8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .logo span { color: var(--brand); }
+  h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; margin: 40px 0 8px; letter-spacing: -.02em; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  .lead { color: var(--muted); max-width: 680px; margin: 0 0 28px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  .price { font-size: 28px; font-weight: 800; margin: 4px 0; }
+  .price small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .muted { color: var(--muted); font-size: 14px; }
+  button, .btn { appearance: none; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer;
+                 font: inherit; font-weight: 600; background: var(--brand); color: #fff; }
+  button:hover { background: var(--brand-2); }
+  button.sec { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
+          background: var(--bg); color: var(--text); font: inherit; margin: 4px 0 12px; }
+  label { font-size: 14px; font-weight: 600; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tabs button { background: transparent; color: var(--muted); border: 1px solid transparent; }
+  .tabs button.on { color: var(--text); border-color: var(--line); background: var(--bg); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin: 12px 0; font-size: 14px; display: none; }
+  .msg.err { display: block; background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+  .msg.ok { display: block; background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+  .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.off { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+        overflow-x: auto; white-space: pre; }
+  .keybox { word-break: break-all; background: var(--bg); border: 1px dashed var(--brand);
+            border-radius: 8px; padding: 12px; font-family: ui-monospace, monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .scroll { overflow-x: auto; }
+  .meter { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 6px 0; }
+  .meter > div { height: 100%; background: var(--brand); }
+  .hidden { display: none !important; }
+  section { margin: 24px 0; }
+  footer { color: var(--muted); font-size: 13px; padding: 40px 0; }
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <div class="logo">Radar <span>Brasil</span></div>
+  <div class="row"><span id="quem" class="muted"></span>
+    <button id="sair" class="sec hidden" type="button">Sair</button></div>
+</div></header>
+
+<main class="wrap">
+  <!-- Público -->
+  <div id="publico">
+    <h1>Monitoramento ativo do governo brasileiro, direto no seu assistente de IA.</h1>
+    <p class="lead">Leis, Diário Oficial, Câmara e Senado, gastos públicos, contas fiscais de estados
+      e municípios, saúde (SUS, ANVISA, vacinação, epidemiologia), economia e notícias oficiais —
+      mais de 45 fontes públicas em um único servidor MCP.</p>
+    <div id="planos" class="grid"></div>
+
+    <section class="card" style="max-width:440px">
+      <div class="tabs"><button id="tab-login" class="on" type="button">Entrar</button>
+        <button id="tab-cad" type="button">Criar conta</button></div>
+      <form id="form-auth">
+        <div id="campo-nome" class="hidden"><label for="nome">Nome</label><input id="nome" autocomplete="name"></div>
+        <label for="email">E-mail</label><input id="email" type="email" required autocomplete="email">
+        <label for="senha">Senha</label><input id="senha" type="password" required minlength="8" autocomplete="current-password">
+        <button id="btn-auth" type="submit">Entrar</button>
+        <div id="msg-auth" class="msg"></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- Área do cliente -->
+  <div id="painel" class="hidden">
+    <div id="msg-painel" class="msg"></div>
+    <section class="grid">
+      <div class="card">
+        <h2>Seu acesso</h2>
+        <p><span id="status-acesso" class="pill"></span></p>
+        <p id="det-assinatura" class="muted"></p>
+        <div id="uso"></div>
+        <div class="row"><button id="cancelar" class="danger hidden" type="button">Cancelar assinatura</button></div>
+      </div>
+      <div class="card">
+        <h2>Conectar ao Radar</h2>
+        <p class="muted">Endereço MCP (HTTP):</p>
+        <pre id="mcp-url"></pre>
+        <p class="muted">Envie sua chave no cabeçalho <code>Authorization: Bearer rb_...</code></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Planos</h2>
+      <p class="muted">Assinatura mensal no cartão (renova sozinha) ou pagamento avulso de 30 dias com Pix, boleto ou cartão.</p>
+      <p id="aviso-pag" class="msg err hidden">Os pagamentos ainda não foram ativados neste servidor. Fale com o suporte.</p>
+      <div id="planos-painel" class="grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>Chaves de API</h2>
+      <div class="row"><input id="nome-chave" placeholder="Nome (ex: Claude Desktop)" style="max-width:320px;margin:0">
+        <button id="nova-chave" type="button">Gerar chave</button></div>
+      <div id="chave-nova" class="hidden" style="margin-top:12px">
+        <p class="muted">Copie agora — por segurança ela não será exibida novamente:</p>
+        <div id="chave-valor" class="keybox"></div>
+        <p class="muted">Exemplo para Claude Code:</p><pre id="exemplo-cli"></pre>
+      </div>
+      <div class="scroll"><table><thead><tr><th>Nome</th><th>Prefixo</th><th>Criada</th><th>Último uso</th><th></th></tr></thead>
+        <tbody id="lista-chaves"></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Pagamentos</h2>
+      <div class="scroll"><table><thead><tr><th>Data</th><th>Plano</th><th>Valor</th><th>Status</th></tr></thead>
+        <tbody id="lista-pag"></tbody></table></div>
+    </section>
+
+    <section id="admin" class="card hidden">
+      <h2>Administração — clientes</h2>
+      <div class="scroll"><table><thead><tr><th>E-mail</th><th>Papel</th><th>Plano</th><th>Acesso</th><th>Uso hoje</th><th>Ações</th></tr></thead>
+        <tbody id="lista-usuarios"></tbody></table></div>
+    </section>
+  </div>
+</main>
+<footer class="wrap">Radar Brasil · dados de APIs públicas oficiais do governo brasileiro.</footer>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const data = (iso) => iso ? new Date(iso).toLocaleString("pt-BR") : "—";
+  const STATUS_PAG = { approved: "aprovado", pending: "pendente", in_process: "em análise",
+    rejected: "recusado", refunded: "estornado", charged_back: "contestado", cancelled: "cancelado" };
+  let sessao = null, planos = [], pagamentosAtivos = false, modoCadastro = false;
+  try { sessao = localStorage.getItem("radar_sessao"); } catch (_) {}
+
+  function el(tag, attrs = {}, ...filhos) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "on") for (const [ev, fn] of Object.entries(v)) n.addEventListener(ev, fn);
+      else if (k === "class") n.className = v; else n.setAttribute(k, v);
+    }
+    for (const f of filhos) if (f != null) n.append(f instanceof Node ? f : document.createTextNode(String(f)));
+    return n;
+  }
+  function msg(id, texto, tipo = "err") { const m = $(id); m.textContent = texto; m.className = "msg " + (texto ? tipo : ""); }
+
+  async function api(caminho, opts = {}) {
+    const headers = { "Content-Type": "application/json" };
+    if (sessao) headers["X-Radar-Sessao"] = sessao;
+    const r = await fetch(caminho, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const corpo = await r.json().catch(() => ({}));
+    if (r.status === 401 && sessao && caminho !== "/api/login") { sair(); }
+    if (!r.ok) throw new Error(corpo.erro || "Erro inesperado (" + r.status + ")");
+    return corpo;
+  }
+
+  function cardPlano(p, comAcoes) {
+    const acoes = comAcoes ? el("div", { class: "row" },
+      el("button", { type: "button", on: { click: () => checkout(p.id, "assinatura") } }, "Assinar mensal"),
+      el("button", { type: "button", class: "sec", on: { click: () => checkout(p.id, "avulso") } }, "30 dias (Pix/boleto)")
+    ) : null;
+    if (acoes && !pagamentosAtivos) for (const b of acoes.querySelectorAll("button")) b.disabled = true;
+    return el("div", { class: "card" },
+      el("h2", {}, p.nome),
+      el("div", { class: "price" }, brl(p.preco), el("small", {}, " /mês")),
+      el("p", { class: "muted" }, p.descricao),
+      el("p", {}, `${Number(p.consultas_dia).toLocaleString("pt-BR")} consultas por dia`),
+      acoes);
+  }
+
+  async function carregarPlanos() {
+    const r = await api("/api/planos");
+    planos = r.planos; pagamentosAtivos = r.pagamentos_ativos;
+    $("planos").replaceChildren(...planos.map((p) => cardPlano(p, false)));
+  }
+
+  async function checkout(plano, modo) {
+    try {
+      msg("msg-painel", "Abrindo o Mercado Pago…", "ok");
+      const r = await api("/api/cobranca/checkout", { method: "POST", body: { plano, modo } });
+      window.location.href = r.url;
+    } catch (e) { msg("msg-painel", e.message); }
+  }
+
+  function sair() {
+    sessao = null; try { localStorage.removeItem("radar_sessao"); } catch (_) {}
+    $("painel").classList.add("hidden"); $("publico").classList.remove("hidden");
+    $("sair").classList.add("hidden"); $("quem").textContent = "";
+  }
+
+  async function carregarPainel() {
+    const r = await api("/api/eu");
+    $("publico").classList.add("hidden"); $("painel").classList.remove("hidden");
+    $("sair").classList.remove("hidden"); $("quem").textContent = r.usuario.email;
+
+    const st = $("status-acesso");
+    st.textContent = r.acesso_ativo ? "Acesso ativo" : "Sem acesso — escolha um plano";
+    st.className = "pill " + (r.acesso_ativo ? "on" : "off");
+    const a = r.assinatura;
+    $("det-assinatura").textContent = r.usuario.papel === "admin" ? "Administrador — acesso ilimitado."
+      : a ? `Plano ${a.plano} · ${a.status} · válido até ${data(a.periodo_fim)}` : "Nenhum plano contratado.";
+    $("cancelar").classList.toggle("hidden", !(a && a.mp_preapproval_id && a.origem === "assinatura" && a.status !== "cancelada"));
+
+    if (r.limite_diario) {
+      const pct = Math.min(100, Math.round((r.uso_hoje / r.limite_diario) * 100));
+      $("uso").replaceChildren(el("p", { class: "muted" }, `Uso hoje: ${r.uso_hoje} de ${r.limite_diario} consultas`),
+        el("div", { class: "meter" }, el("div", { style: `width:${pct}%` })));
+    } else $("uso").replaceChildren(el("p", { class: "muted" }, `Uso hoje: ${r.uso_hoje} consultas`));
+
+    $("mcp-url").textContent = r.mcp_url;
+    $("aviso-pag").classList.toggle("hidden", pagamentosAtivos);
+    $("planos-painel").replaceChildren(...planos.map((p) => cardPlano(p, true)));
+
+    $("lista-chaves").replaceChildren(...(r.chaves.length ? r.chaves.map((c) => el("tr", {},
+      el("td", {}, c.nome || "—"), el("td", {}, el("code", {}, c.prefixo + "…")),
+      el("td", {}, data(c.criado_em)), el("td", {}, data(c.ultimo_uso)),
+      el("td", {}, el("button", { type: "button", class: "danger", on: { click: () => revogar(c.id) } }, "Revogar"))))
+      : [el("tr", {}, el("td", { colspan: "5", class: "muted" }, "Nenhuma chave ainda."))]));
+
+    $("lista-pag").replaceChildren(...(r.pagamentos.length ? r.pagamentos.map((p) => el("tr", {},
+      el("td", {}, data(p.criado_em)), el("td", {}, p.plano), el("td", {}, brl(p.valor)),
+      el("td", {}, STATUS_PAG[p.status] || p.status)))
+      : [el("tr", {}, el("td", { colspan: "4", class: "muted" }, "Nenhum pagamento."))]));
+
+    if (r.usuario.papel === "admin") { $("admin").classList.remove("hidden"); carregarAdmin(); }
+    const retorno = new URLSearchParams(location.search).get("retorno");
+    if (retorno) msg("msg-painel", "Recebemos seu retorno do Mercado Pago. A confirmação do pagamento pode levar alguns minutos.", "ok");
+  }
+
+  async function revogar(id) {
+    if (!confirm("Revogar esta chave? Integrações que a usam deixarão de funcionar.")) return;
+    try { await api(`/api/chaves/${id}`, { method: "DELETE" }); carregarPainel(); }
+    catch (e) { msg("msg-painel", e.message); }
+  }
+
+  async function carregarAdmin() {
+    const r = await api("/api/admin/usuarios");
+    $("lista-usuarios").replaceChildren(...r.usuarios.map((u) => {
+      const a = u.assinatura;
+      const conceder = el("button", { type: "button", class: "sec", on: { click: async () => {
+        const plano = prompt("Plano (" + planos.map((p) => p.id).join(", ") + "):", planos[0]?.id || "");
+        if (!plano) return; const dias = Number(prompt("Dias de acesso:", "30") || 0); if (!dias) return;
+        try { await api(`/api/admin/usuarios/${u.id}`, { method: "PATCH", body: { conceder_plano: plano, dias } }); carregarAdmin(); }
+        catch (e) { msg("msg-painel", e.message); } } } }, "Conceder");
+      const toggle = el("button", { type: "button", class: u.ativo ? "danger" : "sec", on: { click: async () => {
+        try { await api(`/api/admin/usuarios/${u.id}`, { method: "PATCH", body: { ativo: !u.ativo } }); carregarAdmin(); }
+        catch (e) { msg("msg-painel", e.message); } } } }, u.ativo ? "Desativar" : "Reativar");
+      return el("tr", {}, el("td", {}, u.email), el("td", {}, u.papel),
+        el("td", {}, a ? `${a.plano} (${a.status}) até ${data(a.periodo_fim)}` : "—"),
+        el("td", {}, el("span", { class: "pill " + (u.acesso_ativo ? "on" : "off") }, u.acesso_ativo ? "sim" : "não")),
+        el("td", {}, u.uso_hoje), el("td", {}, el("div", { class: "row" }, conceder, toggle)));
+    }));
+  }
+
+  function alternar(cadastro) {
+    modoCadastro = cadastro;
+    $("tab-login").classList.toggle("on", !cadastro); $("tab-cad").classList.toggle("on", cadastro);
+    $("campo-nome").classList.toggle("hidden", !cadastro);
+    $("btn-auth").textContent = cadastro ? "Criar conta" : "Entrar";
+    $("senha").autocomplete = cadastro ? "new-password" : "current-password";
+    msg("msg-auth", "");
+  }
+  $("tab-login").addEventListener("click", () => alternar(false));
+  $("tab-cad").addEventListener("click", () => alternar(true));
+  $("sair").addEventListener("click", sair);
+
+  $("form-auth").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      const body = { email: $("email").value, senha: $("senha").value, nome: $("nome").value };
+      const r = await api(modoCadastro ? "/api/cadastro" : "/api/login", { method: "POST", body });
+      sessao = r.sessao; try { localStorage.setItem("radar_sessao", sessao); } catch (_) {}
+      $("senha").value = ""; await carregarPainel();
+    } catch (e) { msg("msg-auth", e.message); }
+  });
+
+  $("nova-chave").addEventListener("click", async () => {
+    try {
+      const r = await api("/api/chaves", { method: "POST", body: { nome: $("nome-chave").value } });
+      $("chave-valor").textContent = r.chave;
+      $("exemplo-cli").textContent = `claude mcp add --transport http radar-brasil ${$("mcp-url").textContent} \\\n  --header "Authorization: Bearer ${r.chave}"`;
+      $("chave-nova").classList.remove("hidden"); $("nome-chave").value = ""; carregarPainel();
+    } catch (e) { msg("msg-painel", e.message); }
+  });
+
+  $("cancelar").addEventListener("click", async () => {
+    if (!confirm("Cancelar a renovação automática? Você mantém o acesso até o fim do período pago.")) return;
+    try { await api("/api/cobranca/cancelar", { method: "POST" }); msg("msg-painel", "Assinatura cancelada.", "ok"); carregarPainel(); }
+    catch (e) { msg("msg-painel", e.message); }
+  });
+
+  carregarPlanos().then(() => sessao ? carregarPainel().catch(sair) : null)
+    .catch((e) => msg("msg-auth", e.message));
+})();
+</script>
+</body>
+</html>

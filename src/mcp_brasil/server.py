@@ -1,4 +1,4 @@
-"""mcp-brasil root server — auto-discovers and mounts all features.
+"""Radar Brasil (mcp-brasil) root server — auto-discovers and mounts all features.
 
 This file uses FeatureRegistry for zero-touch feature onboarding.
 You should NEVER need to edit this file to add a new feature.
@@ -26,7 +26,7 @@ from ._shared.auth import build_auth
 from ._shared.batch import build_dispatch, execute_batch
 from ._shared.feature import FeatureRegistry
 from ._shared.lifespan import http_lifespan
-from .settings import MCP_BRASIL_BASE_URL, TOOL_SEARCH
+from .settings import AUTH_MODE, MCP_BRASIL_BASE_URL, TOOL_SEARCH
 
 logging.basicConfig(
     level=logging.INFO,
@@ -90,7 +90,7 @@ _LOGO_URL = f"{MCP_BRASIL_BASE_URL.rstrip('/')}/logo.png" if MCP_BRASIL_BASE_URL
 
 # Create the root server
 mcp = FastMCP(
-    "mcp-brasil 🇧🇷",
+    "Radar Brasil 🇧🇷",
     lifespan=http_lifespan,
     auth=auth,
     icons=[mt.Icon(src=_LOGO_URL, mimeType="image/png")],
@@ -99,6 +99,12 @@ mcp = FastMCP(
 
 # Add middleware
 mcp.add_middleware(RequestLoggingMiddleware())
+
+# Radar Brasil commercial layer: portal, billing (Mercado Pago) and per-plan quotas
+if AUTH_MODE == "radar":
+    from .radar import install as install_radar
+
+    install_radar(mcp)
 
 
 # Health check endpoint (no auth required)

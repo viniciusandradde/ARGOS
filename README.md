@@ -1,25 +1,47 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="mcp-brasil logo" width="100">
+<img src="docs/assets/logo.png" alt="Radar Brasil logo" width="100">
 
-# mcp-brasil
+# Radar Brasil
 
-**MCP Server para 41 APIs públicas brasileiras**
+**Monitoramento ativo do governo brasileiro via MCP — 45 fontes de dados públicas**
+
+_Baseado no projeto open-source [mcp-brasil](https://github.com/jxnxts/mcp-brasil). O pacote Python continua se chamando `mcp_brasil`._
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-363 tools · 87 resources · 62 prompts · 11 áreas temáticas
+389 tools · 45 fontes · 11 áreas temáticas · modo comercial com planos e Mercado Pago
 
 Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil — economia, legislação, transparência, judiciário, eleições, meio ambiente, saúde, segurança pública e mais.
 
 **38 APIs não requerem chave** · 3 usam chaves gratuitas (cadastro em 1 min)
 
-[Quick Start](#quick-start) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
+[Quick Start](#quick-start) · [Radar Brasil (modo comercial)](#radar-brasil-modo-comercial) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
 
 </div>
 
 ---
+
+## Radar Brasil (modo comercial)
+
+Com `MCP_BRASIL_AUTH_MODE=radar`, o servidor vira um produto pago:
+
+- **Portal do cliente** em `/conta`, com cadastro, login, contratação de plano, chaves de API e pagamentos
+- **Chave de API por cliente** (`Authorization: Bearer rb_...`), válida só enquanto o plano estiver pago
+- **Planos com limite diário de consultas**: Essencial, Profissional e Empresarial, configuráveis
+- **Mercado Pago**: assinatura mensal no cartão ou 30 dias avulsos com Pix ou boleto, liberação automática por webhook validado (`x-signature`) e corte de acesso em caso de estorno
+- **Administração** no portal e pela linha de comando (`python -m mcp_brasil.radar`)
+
+```bash
+MCP_BRASIL_AUTH_MODE=radar
+MCP_BRASIL_BASE_URL=https://radar.seudominio.com.br
+RADAR_SECRET_KEY=...
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
+MERCADOPAGO_WEBHOOK_SECRET=...
+```
+
+Passo a passo completo: [docs/deploy/radar-brasil.md](docs/deploy/radar-brasil.md).
 
 ## Features
 
@@ -121,6 +143,7 @@ Conecte o server e faça perguntas em linguagem natural:
 |---------|-------|:-----:|
 | `bacen` | Banco Central — Selic, IPCA, câmbio, PIB e +190 séries temporais | 9 |
 | `bndes` | BNDES — operações de financiamento, desembolsos, instituições credenciadas | 4 |
+| `siconfi` | Tesouro Nacional (SICONFI) — RREO, RGF/LRF, DCA (arrecadação de impostos) de União, estados e municípios | 5 |
 
 ### Geografia e Estatística
 
@@ -128,12 +151,19 @@ Conecte o server e faça perguntas em linguagem natural:
 |---------|-------|:-----:|
 | `ibge` | IBGE — estados, municípios, nomes, agregados estatísticos | 9 |
 
-### Legislativo
+### Legislativo e Legislação
 
 | Feature | Fonte | Tools |
 |---------|-------|:-----:|
 | `camara` | Câmara dos Deputados — deputados, proposições, votações, despesas | 11 |
 | `senado` | Senado Federal — senadores, matérias, votações, comissões | 26 |
+| `lexml` | LexML Brasil — leis, decretos, MPs e projetos de todas as esferas | 3 |
+
+### Notícias oficiais
+
+| Feature | Fonte | Tools |
+|---------|-------|:-----:|
+| `noticias` | RSS da Agência Brasil, Agência Câmara, Agência Senado, Planalto, Agência Gov, Banco Central, ANS e Receita | 3 |
 
 ### Transparência e Fiscalização
 
@@ -236,6 +266,11 @@ META_ACCESS_TOKEN=seu-token
 | `TRANSPARENCIA_API_KEY` | — | Chave do Portal da Transparência |
 | `DATAJUD_API_KEY` | — | Chave do DataJud/CNJ |
 | `META_ACCESS_TOKEN` | — | Token da [Meta Ad Library API](https://www.facebook.com/ads/library/api/) |
+| `MCP_BRASIL_AUTH_MODE` | auto | `none`, `static`, `oauth`, `multi` ou `radar` (modo comercial) |
+| `MERCADOPAGO_ACCESS_TOKEN` | — | Access Token do Mercado Pago (modo `radar`) |
+| `MERCADOPAGO_WEBHOOK_SECRET` | — | Assinatura secreta dos webhooks do Mercado Pago (modo `radar`) |
+| `RADAR_SECRET_KEY` | — | Chave que assina as sessões do portal (modo `radar`) |
+| `RADAR_DB_PATH` | `data/radar.db` | Banco SQLite de usuários, chaves e pagamentos (modo `radar`) |
 | `MCP_BRASIL_TOOL_SEARCH` | `bm25` | Modo de discovery: `bm25`, `code_mode` ou `none` |
 | `MCP_BRASIL_HTTP_TIMEOUT` | `30.0` | Timeout HTTP em segundos |
 | `MCP_BRASIL_HTTP_MAX_RETRIES` | `3` | Máximo de retentativas HTTP |
@@ -250,6 +285,7 @@ META_ACCESS_TOKEN=seu-token
 | [Smart Tools](docs/reference/smart-tools.md) | Meta-tools: planner, batch, discovery |
 | [Adicionando Features](docs/guide/adding-features.md) | Guia para contribuir com novas APIs |
 | [Configuração](docs/reference/configuration.md) | Variáveis de ambiente e opções |
+| [Radar Brasil](docs/deploy/radar-brasil.md) | Vender acesso: planos, chaves por cliente, Mercado Pago |
 | [Meta Ad Library API](docs/reference/meta-ad-library-api.md) | Referência da API de anúncios eleitorais da Meta |
 | [Code Mode](docs/reference/code-mode.md) | Discovery programático + sandbox Python (experimental) |
 | [Desenvolvimento](docs/guide/development.md) | Setup de dev, testes, lint, CI |
@@ -279,7 +315,7 @@ O projeto usa **Package by Feature** com **Auto-Registry** — cada feature é u
 src/mcp_brasil/
 ├── server.py              # Auto-registry (nunca editado manualmente)
 ├── _shared/               # Utilitários compartilhados
-├── data/                  # 40 features de consulta a APIs
+├── data/                  # 45 features de consulta a APIs
 │   ├── ibge/
 │   │   ├── __init__.py    # FEATURE_META
 │   │   ├── server.py      # FastMCP instance
@@ -289,8 +325,9 @@ src/mcp_brasil/
 │   │   └── constants.py   # URLs, códigos
 │   ├── bacen/
 │   └── ...
-└── agentes/               # Features de agentes inteligentes
-    └── redator/
+├── agentes/               # Features de agentes inteligentes
+│   └── redator/
+└── radar/                 # Radar Brasil: usuários, planos, Mercado Pago, portal
 ```
 
 Para adicionar uma nova feature, basta criar o diretório seguindo a convenção — o registry descobre automaticamente.

@@ -1,7 +1,7 @@
 [project]
 name = "mcp-brasil"
 version = "0.12.1"
-description = "MCP servers para APIs públicas brasileiras"
+description = "Radar Brasil — MCP server para monitoramento de APIs públicas brasileiras"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
