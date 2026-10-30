@@ -61,6 +61,20 @@ Dados abertos do BNDES: operacoes de financiamento, exportacao, desembolsos, ins
 
 ---
 
+### `siconfi` — Tesouro Nacional / SICONFI (5 tools)
+
+Relatórios fiscais de União, estados e municípios. Sem chave.
+
+| Tool | Descricao |
+|------|-----------|
+| `siconfi_buscar_ente` | Busca o código IBGE de um ente (União, estado ou município) |
+| `siconfi_consultar_rreo` | RREO — execução orçamentária bimestral (receitas, despesas, RCL, saúde) |
+| `siconfi_consultar_rgf` | RGF — gestão fiscal / limites da LRF (pessoal, dívida) |
+| `siconfi_consultar_dca` | DCA — contas anuais (balanço, receitas de impostos, despesas) |
+| `siconfi_extrato_entregas` | Quais relatórios o ente entregou ao Tesouro no ano |
+
+---
+
 ## Legislativo
 
 ### `camara` — Camara dos Deputados (11 tools)
@@ -104,6 +118,28 @@ Senadores, materias, votacoes, comissoes, agenda, liderancas.
 **Extra (2):** `senado_listar_liderancas`, `senado_relatorias_senador`
 
 **Chave:** Nenhuma
+
+---
+
+### `lexml` — LexML Brasil (3 tools)
+
+Busca unificada de normas de todas as esferas via SRU. Sem chave.
+
+| Tool | Descricao |
+|------|-----------|
+| `lexml_buscar_normas` | Busca leis, decretos, MPs etc. por termo, tipo, localidade e ano |
+| `lexml_buscar_por_urn` | Detalha uma norma pelo URN LexML |
+| `lexml_listar_tipos_documento` | Tipos aceitos no filtro `tipo` |
+
+### `noticias` — Notícias oficiais via RSS (3 tools)
+
+Agência Brasil, Agência Câmara, Agência Senado, Planalto, Agência Gov, Banco Central, ANS e Receita Federal. Sem chave.
+
+| Tool | Descricao |
+|------|-----------|
+| `noticias_listar_fontes` | Fontes e categorias disponíveis |
+| `noticias_ultimas_noticias` | Últimas notícias de uma fonte |
+| `noticias_buscar_noticias` | Busca por termo em várias fontes ao mesmo tempo, da mais recente para a mais antiga |
 
 ---
 

@@ -87,6 +87,38 @@ async def http_get(
     Raises:
         HttpClientError: On non-retryable errors or exhausted retries.
     """
+    response = await _get_with_retry(
+        url, params=params, headers=headers, timeout=timeout, max_retries=max_retries
+    )
+    return response.json()
+
+
+async def http_get_text(
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
+) -> str:
+    """Same as :func:`http_get`, but returns the raw body (XML, RSS, HTML)."""
+    merged = {"Accept": "application/xml, text/xml, application/rss+xml, */*"}
+    if headers:
+        merged.update(headers)
+    response = await _get_with_retry(
+        url, params=params, headers=merged, timeout=timeout, max_retries=max_retries
+    )
+    return response.text
+
+
+async def _get_with_retry(
+    url: str,
+    *,
+    params: dict[str, Any] | None,
+    headers: dict[str, str] | None,
+    timeout: float | None,
+    max_retries: int | None,
+) -> httpx.Response:
     retries = max_retries if max_retries is not None else HTTP_MAX_RETRIES
     last_error: Exception | None = None
 
@@ -115,7 +147,7 @@ async def http_get(
                     )
 
                 response.raise_for_status()
-                return response.json()
+                return response
 
             except httpx.HTTPStatusError as exc:
                 raise HttpClientError(
