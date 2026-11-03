@@ -237,3 +237,84 @@ async def eventos_naturais(ctx: Context, dias: int = 15, categoria: str | None =
     ]
     linhas += [f"- {e.titulo} ({e.categoria}, {e.data})" for e in eventos[:25]]
     return "\n".join(linhas)
+
+
+async def risco_local(
+    cidade: str,
+    ctx: Context,
+    uf: str = "",
+    bairro: str = "",
+    lat: float | None = None,
+    lon: float | None = None,
+) -> str:
+    """Risco climático no nível do bairro (ou de um ponto exato): calor, ventania,
+    tempestade, chuva forte e baixa umidade nas próximas 48 horas.
+
+    Cruza: avisos oficiais do INMET (testando se o ponto está DENTRO do polígono do
+    aviso), observação real do aeroporto mais próximo (METAR), previsão hora a hora de
+    3 modelos (ECMWF, ICON, GFS) com a divergência entre eles e focos de queimada (INPE).
+
+    Args:
+        cidade: Município (ex: 'Dourados').
+        uf: Sigla do estado (ex: 'MS').
+        bairro: Bairro (ex: 'Jardim América'). Vazio = centro do município.
+        lat: Latitude exata (opcional; sobrepõe o bairro).
+        lon: Longitude exata (opcional).
+    """
+    from . import local as L
+
+    if lat is not None and lon is not None:
+        alvo = L.ponto(lat, lon, cidade, uf)
+    else:
+        encontrado = await L.localizar(cidade, uf, bairro)
+        if encontrado is None:
+            return f"Não encontrei '{cidade}/{uf}'."
+        alvo = encontrado
+    await ctx.info(f"Analisando risco climático em {alvo.nome}...")
+    r = await L.relatorio(alvo)
+    icone = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
+    linhas = [
+        f"## 🌩️ Risco climático — {alvo.nome}",
+        f"Coordenadas {alvo.lat:.5f}, {alvo.lon:.5f} (precisão: {alvo.precisao}; {alvo.fonte})",
+        "",
+        "### Avisos oficiais do INMET",
+    ]
+    if r["avisos"]:
+        for a in r["avisos"]:
+            onde = "ponto DENTRO da área" if a["dentro_do_poligono"] else "município citado"
+            linhas.append(
+                f"- **{a['evento']} — {a['severidade']}** ({a['inicio']} → {a['fim']}; {onde})"
+            )
+    else:
+        linhas.append("- Nenhum aviso vigente para este ponto.")
+    linhas += ["", "### Próximas 48 h (critérios INMET / NOAA)"]
+    for x in r["riscos"]:
+        linhas.append(
+            f"- {icone[x['nivel']]} **{x['tipo'].upper()}: {x['rotulo']}** — {x['valor']}"
+            + (f" (pico {x['quando'][5:16].replace('T', ' ')})" if x["quando"] else "")
+        )
+    obs = r["observacao"]
+    if obs:
+        linhas += [
+            "",
+            f"### Observação real — {obs['nome']} ({obs['distancia_km']} km)",
+            f"{obs['temperatura']}°C, vento {obs['vento_kmh']} km/h"
+            + (f", rajada {obs['rajada_kmh']} km/h" if obs["rajada_kmh"] else "")
+            + (f", fenômeno {obs['fenomeno']}" if obs["fenomeno"] else "")
+            + f" — `{obs['bruto']}`",
+        ]
+    if r["consenso"]:
+        linhas += ["", "### Consenso entre modelos (máx. do dia)"]
+        rows = []
+        for c in r["consenso"]:
+            for modelo, v in c["modelos"].items():
+                rows.append([c["dia"], modelo, v["tmax"], v["rajada"], v["chuva"]])
+        linhas.append(
+            markdown_table(["Dia", "Modelo", "Tmáx °C", "Rajada km/h", "Chuva mm"], rows)
+        )
+    if r["focos"]:
+        linhas.append(f"\n🔥 {len(r['focos'])} foco(s) de queimada em até 50 km "
+                      f"(mais próximo a {r['focos'][0]['distancia_km']} km).")  # fmt: skip
+    if r["falhas"]:
+        linhas.append(f"\n⚠️ Fontes indisponíveis agora: {', '.join(r['falhas'])}")
+    return "\n".join(linhas)

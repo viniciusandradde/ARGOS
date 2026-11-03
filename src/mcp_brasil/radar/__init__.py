@@ -14,12 +14,15 @@ Ativada com ``MCP_BRASIL_AUTH_MODE=radar``. Adiciona:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
+from collections.abc import AsyncIterator
 from functools import lru_cache
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.server.lifespan import lifespan
 
 from .alertas import Alertas
 from .coletor import ConfigColeta
@@ -139,7 +142,6 @@ def install(
         servico,
         indicadores if indicadores is not None else get_indicadores(),
         config_coleta_from_settings(),
-        settings.RADAR_COLETA_MINUTOS if settings.RADAR_COLETOR_EMBUTIDO else 0,
         alertas if alertas is not None else get_alertas(),
         settings.TELEGRAM_BOT_USERNAME,
     )
@@ -150,3 +152,32 @@ def install(
         servico.config.db_path,
     )
     return servico
+
+
+@lifespan
+async def coletor_lifespan(server: FastMCP[Any]) -> AsyncIterator[dict[str, Any]]:
+    """Run the collector (and alert dispatch) inside the web process from startup.
+
+    Enabled by ``RADAR_COLETOR_EMBUTIDO=1`` (default) — one light container, no extra service.
+    """
+    from mcp_brasil import settings
+
+    from .coletor import loop_coleta
+
+    tarefa: asyncio.Task[None] | None = None
+    if settings.RADAR_COLETOR_EMBUTIDO:
+        alertas = get_alertas()
+        tarefa = asyncio.create_task(
+            loop_coleta(
+                get_indicadores(),
+                config_coleta_from_settings(),
+                settings.RADAR_COLETA_MINUTOS,
+                alertas.despachar if alertas.configurado else None,
+            )
+        )
+        logger.info("Coletor embutido iniciado (a cada %d min)", settings.RADAR_COLETA_MINUTOS)
+    try:
+        yield {}
+    finally:
+        if tarefa is not None:
+            tarefa.cancel()

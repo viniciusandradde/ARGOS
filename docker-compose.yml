@@ -1,57 +1,49 @@
-# ARGOS — stack simples: aplicação web + coletor + Metabase (relatórios)
+# ARGOS — instalação leve para VPS (1 vCPU / 1 GB de RAM é suficiente)
 #
-#   docker compose up -d --build                       # sem WhatsApp
-#   docker compose --profile whatsapp up -d --build    # com Evolution API (WhatsApp)
+#   docker compose up -d --build                    # ARGOS + HTTPS (Caddy)
+#   docker compose --profile whatsapp up -d         # + WhatsApp via Evolution API (exige ~1 GB a mais)
+#   docker compose --profile relatorios up -d       # + Metabase (opcional, desligado por padrão)
 #
-#   Portal/painel:  http://localhost:8061/conta  e  /painel
-#   Metabase:       http://localhost:3000   (banco: SQLite em /indicadores/indicadores.db)
-#   Evolution API:  http://localhost:8080   (só local; o ARGOS acessa por http://evolution-api:8080)
-#
-# Volumes separados de propósito: o Metabase só enxerga o banco público de
-# indicadores, nunca o banco de usuários, chaves e pagamentos.
+# O coletor de indicadores e o envio de alertas rodam DENTRO do serviço "argos"
+# (RADAR_COLETOR_EMBUTIDO=1), sem container extra.
 services:
-  mcp-brasil:
+  argos:
     build: .
-    ports:
-      - "8061:8061"
     env_file: .env
     environment:
-      RADAR_DB_PATH: /app/data/radar.db
-      RADAR_INDICADORES_DB: /indicadores/indicadores.db
-      RADAR_COLETOR_EMBUTIDO: "0"   # a coleta roda no serviço "coletor"
+      RADAR_COLETOR_EMBUTIDO: "1"
     volumes:
-      - radar-data:/app/data
-      - indicadores:/indicadores
+      - argos-data:/data
+    expose:
+      - "8061"
+    mem_limit: 512m
     restart: unless-stopped
+    logging: &logs
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8061/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 20s
 
-  coletor:   # coleta indicadores e envia os alertas de WhatsApp/Telegram
-    build: .
-    command: ["uv", "run", "python", "-m", "mcp_brasil.radar", "coletar", "--loop"]
-    env_file: .env
-    environment:
-      RADAR_DB_PATH: /app/data/radar.db
-      RADAR_INDICADORES_DB: /indicadores/indicadores.db
-    volumes:
-      - radar-data:/app/data
-      - indicadores:/indicadores
-    restart: unless-stopped
-
-  metabase:
-    image: metabase/metabase:latest   # fixe uma versão (ex: v0.5x.y) em produção
+  caddy:
+    image: caddy:2-alpine
     ports:
-      - "3000:3000"
+      - "80:80"
+      - "443:443"
     environment:
-      MB_DB_FILE: /metabase-data/metabase.db
+      ARGOS_DOMINIO: ${ARGOS_DOMINIO:-:80}
     volumes:
-      - metabase-data:/metabase-data
-      - indicadores:/indicadores
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - argos
+    mem_limit: 128m
     restart: unless-stopped
+    logging: *logs
 
   # --- WhatsApp: Evolution API (perfil "whatsapp") ---------------------------
   evolution-api:
@@ -71,22 +63,41 @@ services:
       - evolution-instances:/evolution/instances
     depends_on:
       - evolution-postgres
+    mem_limit: 768m
     restart: unless-stopped
+    logging: *logs
 
   evolution-postgres:
     profiles: ["whatsapp"]
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
       POSTGRES_DB: evolution
       POSTGRES_USER: evolution
       POSTGRES_PASSWORD: ${EVOLUTION_DB_SENHA:-evolution}
     volumes:
       - evolution-db:/var/lib/postgresql/data
+    mem_limit: 256m
     restart: unless-stopped
+    logging: *logs
+
+  # --- Relatórios: Metabase (perfil "relatorios", desligado por padrão) -------
+  metabase:
+    profiles: ["relatorios"]
+    image: metabase/metabase:latest   # fixe uma versão em produção
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+      - argos-data:/argos-data:ro   # SQLite: /argos-data/indicadores.db
+    restart: unless-stopped
+    logging: *logs
 
 volumes:
-  radar-data:
-  indicadores:
-  metabase-data:
+  argos-data:
+  caddy-data:
+  caddy-config:
   evolution-instances:
   evolution-db:
+  metabase-data:

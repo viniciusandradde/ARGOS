@@ -1,0 +1,13 @@
+# HTTPS automático (Let's Encrypt) para o ARGOS.
+# ARGOS_DOMINIO=argos.seudominio.com.br  → HTTPS com certificado automático
+# ARGOS_DOMINIO=:80                       → só HTTP (teste por IP, sem domínio)
+{$ARGOS_DOMINIO::80} {
+	encode gzip
+	reverse_proxy argos:8061
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

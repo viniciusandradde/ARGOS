@@ -18,6 +18,7 @@ import starlette.responses
 from fastmcp import Context, FastMCP
 from fastmcp.prompts import PromptResult
 from fastmcp.resources import ResourceResult
+from fastmcp.server.lifespan import Lifespan
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools import ToolResult
 from starlette.responses import JSONResponse
@@ -88,10 +89,19 @@ _LOGO_PATH = pathlib.Path(__file__).parent.parent.parent / "docs" / "assets" / "
 # Use absolute URL when BASE_URL is set (production), relative path otherwise (local)
 _LOGO_URL = f"{MCP_BRASIL_BASE_URL.rstrip('/')}/logo.png" if MCP_BRASIL_BASE_URL else "/logo.png"
 
+# In commercial mode the collector/alert loop runs inside this process from startup
+_lifespan: Lifespan
+if AUTH_MODE == "radar":
+    from .radar import coletor_lifespan
+
+    _lifespan = http_lifespan | coletor_lifespan
+else:
+    _lifespan = http_lifespan
+
 # Create the root server
 mcp = FastMCP(
     f"{RADAR_NOME} 🇧🇷",
-    lifespan=http_lifespan,
+    lifespan=_lifespan,
     auth=auth,
     icons=[mt.Icon(src=_LOGO_URL, mimeType="image/png")],
     website_url="https://github.com/jxnxts/mcp-brasil",

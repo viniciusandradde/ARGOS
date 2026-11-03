@@ -33,6 +33,7 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 - **clima**, com avisos do INMET;
 - **câmbio**, **terremotos** e **alertas críticos** do mundo inteiro;
 - **feed de notícias** com temas e filtros configurados por cada usuário;
+- **radar climático local** (`/clima`): calor, ventania, tempestade e chuva por **bairro ou ponto no mapa**, com polígonos oficiais do INMET, METAR e 3 modelos ([guia](docs/deploy/radar-climatico-local.md));
 - **alertas no WhatsApp (Evolution API) e no Telegram**, com um resumo por rodada e só quando há novidade ([guia](docs/deploy/alertas-whatsapp-telegram.md)).
 
 ![Sala de situação do ARGOS](docs/assets/argos-sala-de-situacao.png)
@@ -68,6 +69,17 @@ Passo a passo completo: [docs/deploy/radar-brasil.md](docs/deploy/radar-brasil.m
 - **Smart discovery** — BM25 search transform filtra 363 tools para só mostrar as relevantes ao contexto
 - **Auto-registry** — adicionar uma feature é criar uma pasta; zero configuração manual
 - **Async everywhere** — httpx async + Pydantic v2 + rate limiting com backoff
+
+## Subir em VPS (produção)
+
+Uma VPS Ubuntu com **1 vCPU e 1 GB de RAM** basta: o ARGOS usa ~200 MB e roda em um único container mais o Caddy (HTTPS).
+
+```bash
+git clone https://github.com/viniciusandradde/mcp-brasil.git /opt/argos && cd /opt/argos
+bash scripts/instalar_vps.sh --dominio argos.seudominio.com.br --email voce@seudominio.com.br
+```
+
+Passo a passo completo (e roteiro para o Claude instalar sozinho): [docs/deploy/HANDOFF_VPS.md](docs/deploy/HANDOFF_VPS.md).
 
 ## Quick Start
 
@@ -313,6 +325,7 @@ META_ACCESS_TOKEN=seu-token
 | [Configuração](docs/reference/configuration.md) | Variáveis de ambiente e opções |
 | [Radar Brasil](docs/deploy/radar-brasil.md) | Vender acesso: planos, chaves por cliente, Mercado Pago |
 | [Sala de situação e Metabase](docs/deploy/argos-sala-de-situacao.md) | Painel em tempo real, coletor, temas, preços, relatórios |
+| [Radar climático local](docs/deploy/radar-climatico-local.md) | Riscos climáticos por bairro, fontes e critérios |
 | [Alertas WhatsApp e Telegram](docs/deploy/alertas-whatsapp-telegram.md) | Bot do Telegram e WhatsApp via Evolution API (Meta oficial na próxima versão) |
 | [Meta Ad Library API](docs/reference/meta-ad-library-api.md) | Referência da API de anúncios eleitorais da Meta |
 | [Code Mode](docs/reference/code-mode.md) | Discovery programático + sandbox Python (experimental) |

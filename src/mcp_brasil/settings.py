@@ -134,5 +134,10 @@ RADAR_ALERTAS_MAX_ITENS: int = int(os.environ.get("RADAR_ALERTAS_MAX_ITENS", "8"
 MERCADOPAGO_ACCESS_TOKEN: str = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
 MERCADOPAGO_WEBHOOK_SECRET: str = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "")
 
+# --- Open-Meteo ---
+# The free Open-Meteo API is for non-commercial use only. For a paid product, buy a plan at
+# https://open-meteo.com/en/pricing and set the key (calls go to customer-api.open-meteo.com)
+OPEN_METEO_API_KEY: str = os.environ.get("OPEN_METEO_API_KEY", "")
+
 # --- LLM Discovery (recomendar_tools) ---
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")

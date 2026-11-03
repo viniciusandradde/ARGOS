@@ -22,6 +22,7 @@ from .constants import (
     OPEN_METEO_GEOCODING,
     OPEN_METEO_PREVISAO,
     USGS_FEED,
+    open_meteo,
 )
 from .schemas import (
     AvisoInmet,
@@ -112,7 +113,8 @@ async def status_enso() -> StatusEnso:
 @ttl_cache(ttl=86400)
 async def geocodificar(cidade: str, pais: str = "BR") -> list[dict[str, Any]]:
     params = {"name": cidade, "count": 5, "language": "pt", "countryCode": pais}
-    data = await http_get(OPEN_METEO_GEOCODING, params=params)
+    url, params = open_meteo(OPEN_METEO_GEOCODING, params)
+    data = await http_get(url, params=params)
     resultados = data.get("results", []) if isinstance(data, dict) else []
     return resultados if isinstance(resultados, list) else []
 
@@ -129,13 +131,16 @@ async def previsao(lat: float, lon: float, dias: int = 5) -> dict[str, Any]:
         "timezone": "auto",
         "forecast_days": max(1, min(dias, 16)),
     }
-    data: dict[str, Any] = await http_get(OPEN_METEO_PREVISAO, params=params)
+    url, params = open_meteo(OPEN_METEO_PREVISAO, params)
+    data: dict[str, Any] = await http_get(url, params=params)
     return data
 
 
 async def qualidade_ar(lat: float, lon: float) -> dict[str, Any]:
-    params = {"latitude": lat, "longitude": lon, "current": "pm2_5,pm10,us_aqi"}
-    data: dict[str, Any] = await http_get(OPEN_METEO_AR, params=params)
+    url, params = open_meteo(
+        OPEN_METEO_AR, {"latitude": lat, "longitude": lon, "current": "pm2_5,pm10,us_aqi"}
+    )
+    data: dict[str, Any] = await http_get(url, params=params)
     return data
 
 

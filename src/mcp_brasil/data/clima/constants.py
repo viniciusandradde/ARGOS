@@ -56,3 +56,17 @@ IMPACTOS_LA_NINA_BR = (
     "Impactos típicos no Brasil: estiagem no Sul (incluindo sul de MS) e chuvas acima da média "
     "no Norte e no Nordeste."
 )
+
+
+def open_meteo(url: str, params: dict[str, object]) -> tuple[str, dict[str, object]]:
+    """Route Open-Meteo calls to the commercial endpoint when OPEN_METEO_API_KEY is set."""
+    from mcp_brasil import settings
+
+    if not settings.OPEN_METEO_API_KEY:
+        return url, params
+    url = (
+        url.replace("https://api.", "https://customer-api.")
+        .replace("https://geocoding-api.", "https://customer-geocoding-api.")
+        .replace("https://air-quality-api.", "https://customer-air-quality-api.")
+    )
+    return url, {**params, "apikey": settings.OPEN_METEO_API_KEY}

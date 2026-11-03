@@ -72,7 +72,7 @@ do servidor (`127.0.0.1:8080`) e pela rede interna do Docker.
 ### 2. Conectar o chip (código de pareamento, sem QR)
 
 ```bash
-docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp conectar --numero 5567999999999
+docker compose exec argos python -m mcp_brasil.radar whatsapp conectar --numero 5567999999999
 ```
 
 O comando cria a instância `argos` e mostra um **código de pareamento**. No celular do chip, abra
@@ -82,8 +82,8 @@ e digite o código.
 Depois confira e faça um teste:
 
 ```bash
-docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp status    # deve mostrar "open"
-docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp teste --numero 5567SEUNUMERO
+docker compose exec argos python -m mcp_brasil.radar whatsapp status    # deve mostrar "open"
+docker compose exec argos python -m mcp_brasil.radar whatsapp teste --numero 5567SEUNUMERO
 ```
 
 Administradores também podem usar a API: `GET /api/admin/whatsapp` retorna o estado e
@@ -113,7 +113,7 @@ quebras de linha do alerta viram " | ", porque a Meta não aceita quebras de lin
 - No portal: **Enviar alerta de teste**.
 - Na linha de comando, uma coleta seguida do envio dos alertas:
   ```bash
-  docker compose exec coletor uv run python -m mcp_brasil.radar coletar
+  docker compose exec argos python -m mcp_brasil.radar coletar
   ```
 - No log do coletor aparece `Alertas: {'usuarios': N, 'mensagens': M}` a cada rodada.
 

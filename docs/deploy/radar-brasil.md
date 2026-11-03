@@ -83,7 +83,8 @@ Para mudar preços ou limites, defina `RADAR_PLANOS` com um JSON. Cada plano ace
 
 ```bash
 cp .env.example .env   # preencha as variáveis acima
-docker compose up -d --build
+bash scripts/instalar_vps.sh --dominio argos.seudominio.com.br --email voce@seudominio.com.br
+# (passo a passo completo: docs/deploy/HANDOFF_VPS.md)
 ```
 
 O `docker-compose.yml` monta o volume `radar-data` em `/app/data`. Sem esse volume, o banco
@@ -95,7 +96,7 @@ envia webhooks para URLs públicas.
 ## 4. Criar o administrador
 
 ```bash
-docker compose exec mcp-brasil uv run python -m mcp_brasil.radar criar-admin --email voce@exemplo.com
+docker compose exec argos python -m mcp_brasil.radar criar-admin --email voce@exemplo.com
 ```
 
 Outros comandos:

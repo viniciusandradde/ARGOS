@@ -11,6 +11,7 @@ from .tools import (
     eventos_naturais,
     previsao_tempo,
     qualidade_ar,
+    risco_local,
     terremotos,
 )
 
@@ -22,3 +23,4 @@ mcp.tool(qualidade_ar, tags={"clima", "ar", "poluicao"})
 mcp.tool(avisos_inmet, tags={"clima", "inmet", "alertas", "monitoramento"})
 mcp.tool(terremotos, tags={"desastres", "terremotos", "usgs"})
 mcp.tool(eventos_naturais, tags={"desastres", "nasa", "incendios", "tempestades"})
+mcp.tool(risco_local, tags={"clima", "bairro", "calor", "ventania", "tempestade", "inmet"})

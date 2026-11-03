@@ -18,7 +18,7 @@ from mcp_brasil.data.noticias.filtros import Filtro
 
 from . import painel as painel_dados
 from .alertas import TIPOS, TIPOS_PADRAO, Alertas, gerar_codigo
-from .coletor import ConfigColeta, coletar_tudo, loop_coleta
+from .coletor import ConfigColeta, coletar_tudo
 from .indicadores import Indicadores
 from .mercadopago import MercadoPagoError, validar_assinatura_webhook
 from .notificadores import EvolutionClient, NotificacaoError, normalizar_whatsapp
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 HEADER_SESSAO = "x-radar-sessao"
 _PORTAL = pathlib.Path(__file__).with_name("portal.html")
 _PAINEL = pathlib.Path(__file__).with_name("painel.html")
+_CLIMA = pathlib.Path(__file__).with_name("clima.html")
 
 Handler = Callable[[Request], Awaitable[Response]]
 
@@ -59,24 +60,11 @@ def registrar_rotas(
     servico: RadarService,
     indicadores: Indicadores | None = None,
     coleta: ConfigColeta | None = None,
-    coletor_embutido_minutos: int = 0,
     alertas: Alertas | None = None,
     telegram_bot: str = "",
 ) -> None:
     ind = indicadores or Indicadores(":memory:")
     cfg_coleta = coleta or ConfigColeta()
-    tarefas: dict[str, asyncio.Task[Any]] = {}
-
-    def garantir_coletor() -> None:
-        """Start the in-process collector loop on first use (single-container deployments)."""
-        if coletor_embutido_minutos <= 0:
-            return
-        tarefa = tarefas.get("loop")
-        if tarefa is None or tarefa.done():
-            depois = alertas.despachar if alertas and alertas.configurado else None
-            tarefas["loop"] = asyncio.create_task(
-                loop_coleta(ind, cfg_coleta, coletor_embutido_minutos, depois)
-            )
 
     def tratar(handler: Handler) -> Handler:
         async def wrapper(request: Request) -> Response:
@@ -129,6 +117,11 @@ def registrar_rotas(
         return _pagina(_PAINEL, nome)
 
     rota("/painel", ["GET"], painel_html)
+
+    async def clima_html(request: Request) -> Response:
+        return _pagina(_CLIMA, nome)
+
+    rota("/clima", ["GET"], clima_html)
 
     async def planos(request: Request) -> Response:
         return JSONResponse(
@@ -253,7 +246,6 @@ def registrar_rotas(
         return logado(wrapper)
 
     async def painel_api(request: Request, usuario: Usuario) -> Response:
-        garantir_coletor()
         q = request.query_params
         feed = Filtro(
             termos=[q["q"]] if q.get("q") else [],
@@ -343,6 +335,51 @@ def registrar_rotas(
         return JSONResponse({"ok": True}) if ok else _erro("Registro não encontrado.", 404)
 
     rota("/api/precos/{preco_id:int}", ["DELETE"], logado(remover_preco))
+
+    # --- Radar climático local (município + bairro / ponto) -------------------
+
+    async def clima_municipios(request: Request, usuario: Usuario) -> Response:
+        from mcp_brasil.data.saude.client import _load_geocode_data
+
+        uf = request.query_params.get("uf", "").upper()
+        nomes = sorted(m["nome"] for m in _load_geocode_data() if m["uf"] == uf)
+        return JSONResponse({"uf": uf, "municipios": nomes})
+
+    rota("/api/clima/municipios", ["GET"], assinante(clima_municipios))
+
+    async def clima_bairros(request: Request, usuario: Usuario) -> Response:
+        from mcp_brasil.data.clima import local as clima_local
+
+        q = request.query_params
+        bairros = await clima_local.listar_bairros(q.get("cidade", ""), q.get("uf", ""))
+        return JSONResponse({"bairros": bairros})
+
+    rota("/api/clima/bairros", ["GET"], assinante(clima_bairros))
+
+    async def clima_local_api(request: Request, usuario: Usuario) -> Response:
+        from mcp_brasil.data.clima import local as clima_local
+
+        q = request.query_params
+        cidade, uf = q.get("cidade", "").strip(), q.get("uf", "").strip()
+        try:
+            lat = float(q["lat"]) if q.get("lat") else None
+            lon = float(q["lon"]) if q.get("lon") else None
+        except ValueError:
+            return _erro("Coordenadas inválidas.")
+        if lat is not None and lon is not None:
+            if not (-34.5 <= lat <= 5.5 and -74.5 <= lon <= -28.5):
+                return _erro("Coordenada fora do Brasil.")
+            alvo = clima_local.ponto(lat, lon, cidade, uf)
+        else:
+            if not cidade or not uf:
+                return _erro("Informe UF e município.")
+            encontrado = await clima_local.localizar(cidade, uf, q.get("bairro", "").strip())
+            if encontrado is None:
+                return _erro("Município não encontrado.", 404)
+            alvo = encontrado
+        return JSONResponse(await clima_local.relatorio(alvo))
+
+    rota("/api/clima/local", ["GET"], assinante(clima_local_api))
 
     # --- Alertas por Telegram e WhatsApp --------------------------------------
 

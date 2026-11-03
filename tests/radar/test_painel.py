@@ -185,3 +185,33 @@ class TestRotasPainel:
         ha = await _login(http, servico, admin=True)
         r = await http.post("/api/admin/coletar", headers=ha)
         assert r.json() == {"resultados": {"enso": "ok"}}
+
+
+class TestRotasClima:
+    async def test_clima_local(
+        self, http: httpx.AsyncClient, servico: RadarService, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from mcp_brasil.data.clima import local as clima_local
+
+        async def fake(alvo: clima_local.Local) -> dict[str, object]:
+            return {"local": alvo.model_dump(), "riscos": []}
+
+        monkeypatch.setattr(clima_local, "relatorio", fake)
+        h = await _login(http, servico)
+        assert (
+            await http.get("/api/clima/local?uf=MS&cidade=Dourados", headers=h)
+        ).status_code == 402
+        servico.conceder(servico.store.usuario_por_email("cli@b.com").id, "essencial", 30)  # type: ignore[union-attr]
+        r = await http.get("/api/clima/local?lat=-22.2&lon=-54.8&cidade=Dourados&uf=MS", headers=h)
+        assert (
+            r.json()["local"]["precisao"] == "ponto"
+            and r.json()["local"]["geocodigo"] == "5003702"
+        )
+        assert (await http.get("/api/clima/local?lat=40&lon=10", headers=h)).status_code == 400
+        assert (await http.get("/api/clima/local?uf=MS", headers=h)).status_code == 400
+        municipios = (await http.get("/api/clima/municipios?uf=MS", headers=h)).json()[
+            "municipios"
+        ]
+        assert "Dourados" in municipios and len(municipios) == 79
+        page = await http.get("/clima")
+        assert page.status_code == 200 and "RADAR CLIMÁTICO LOCAL" in page.text

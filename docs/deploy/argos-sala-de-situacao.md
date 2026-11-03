@@ -105,29 +105,28 @@ Sem um serviço separado, o próprio servidor web roda o coletor (`RADAR_COLETOR
 
 ```bash
 RADAR_NOME=ARGOS
-RADAR_INDICADORES_DB=/indicadores/indicadores.db
+RADAR_INDICADORES_DB=/data/indicadores.db        # já é o padrão na imagem Docker
 RADAR_CIDADES=Dourados/MS,Campo Grande/MS        # clima + arboviroses (a 1ª é a cidade da pesquisa de preços)
 RADAR_ALIMENTOS_LOCALIDADES=brasil,campo_grande  # IPCA: brasil + 16 capitais
 RADAR_AREA_INMET=Mato Grosso do Sul              # avisos do INMET em destaque
 RADAR_COLETA_MINUTOS=15
-RADAR_COLETOR_EMBUTIDO=1                         # 0 quando o serviço "coletor" está rodando
+RADAR_COLETOR_EMBUTIDO=1                         # coletor + alertas dentro do serviço "argos" (padrão)
 ```
 
-## Metabase (relatórios)
+## Metabase (relatórios) — opcional, desligado por padrão
 
-O `docker-compose.yml` já sobe o Metabase na porta 3000.
+Para manter a VPS leve, o Metabase **não sobe** na instalação padrão. Quando quiser os relatórios:
 
-1. Abra `http://SEU-SERVIDOR:3000` e crie o usuário administrador do Metabase.
-2. **Adicionar banco de dados → SQLite**, com o caminho `/indicadores/indicadores.db`.
-3. Crie as perguntas a partir de `docs/metabase/consultas.sql`: El Niño (ONI e semanal), arboviroses,
-   alimentos, preços de Dourados, câmbio, volume de notícias por criticidade e saúde do coletor.
-4. Monte um painel "ARGOS — relatório semanal" e, se quiser, ative o envio por e-mail ou Slack
-   (recurso nativo do Metabase).
+```bash
+docker compose --profile relatorios up -d    # Metabase em 127.0.0.1:3000 (exige ~1 GB de RAM a mais)
+```
 
-**Por que Metabase?** Ele é de código aberto, gratuito para hospedar, lê SQLite direto, permite que pessoas
-sem SQL montem gráficos e envia relatórios agendados. O Grafana é melhor para métricas de segundo a segundo,
-mas aqui os dados mudam em minutos ou semanas, e o tempo real fica com a sala de situação do próprio ARGOS.
-Se o volume crescer muito, troque o SQLite por PostgreSQL: o Metabase continua igual.
+1. Acesse por túnel SSH (`ssh -L 3000:localhost:3000 root@SEU-SERVIDOR`) e abra `http://localhost:3000`.
+2. **Adicionar banco de dados → SQLite**, com o caminho `/argos-data/indicadores.db` (volume montado só leitura).
+3. Use as consultas prontas de `docs/metabase/consultas.sql`.
+
+O Metabase é de código aberto, lê SQLite direto e envia relatórios agendados. O tempo real continua
+na sala de situação.
 
 ## Tools MCP novas
 
