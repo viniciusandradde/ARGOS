@@ -9,6 +9,7 @@ A cada rodada do coletor, para cada assinante com canal conectado:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import secrets
@@ -20,7 +21,13 @@ from mcp_brasil.data.noticias.filtros import Filtro
 from mcp_brasil.data.vigilancia.constants import TERMOS_SURTO
 
 from .indicadores import Indicadores
-from .notificadores import NotificacaoError, TelegramClient, WhatsAppClient, escapar
+from .notificadores import (
+    EvolutionClient,
+    NotificacaoError,
+    TelegramClient,
+    WhatsAppClient,
+    escapar,
+)
 from .painel import CAMPOS_NOTICIA, filtrar, filtro_do_tema
 from .servico import RadarService
 from .store import Usuario
@@ -64,8 +71,9 @@ class Alertas:
         servico: RadarService,
         ind: Indicadores,
         telegram: TelegramClient,
-        whatsapp: WhatsAppClient,
+        whatsapp: EvolutionClient | WhatsAppClient,
         max_itens: int = 8,
+        intervalo_whatsapp: float = 3.0,
     ) -> None:
         self.servico = servico
         self.store = servico.store
@@ -73,6 +81,8 @@ class Alertas:
         self.telegram = telegram
         self.whatsapp = whatsapp
         self.max_itens = max_itens
+        # Pause between WhatsApp recipients (lower ban risk on unofficial providers)
+        self.intervalo_whatsapp = intervalo_whatsapp
 
     @property
     def configurado(self) -> bool:
@@ -192,13 +202,20 @@ class Alertas:
         return "\n".join(linhas)
 
     def _texto_whatsapp(self, eventos: list[Evento]) -> tuple[str, str]:
-        titulo = f"{len(eventos)} alerta(s) do {self.servico.config.nome}"
-        partes = [f"{NIVEL_ICONE.get(e.nivel, '')} {e.titulo}" for e in eventos[: self.max_itens]]
+        titulo = f"🛰 {self.servico.config.nome} — {len(eventos)} alerta(s)"
+        linhas: list[str] = []
+        for e in eventos[: self.max_itens]:
+            linhas.append(f"{NIVEL_ICONE.get(e.nivel, '')} {e.titulo}")
+            if e.detalhe:
+                linhas.append(f"_{e.detalhe}_")
+            if e.link:
+                linhas.append(e.link)
+            linhas.append("")
         if len(eventos) > self.max_itens:
-            partes.append(f"+{len(eventos) - self.max_itens} outros")
+            linhas.append(f"+{len(eventos) - self.max_itens} outros no painel.")
         if self.servico.config.base_url:
-            partes.append(f"Painel: {self.servico.config.base_url.rstrip('/')}/painel")
-        return titulo, " | ".join(partes)
+            linhas.append(f"Painel: {self.servico.config.base_url.rstrip('/')}/painel")
+        return titulo, "\n".join(linhas).strip()
 
     async def enviar(self, prefs: dict[str, Any], eventos: list[Evento]) -> list[str]:
         """Send the digest through every connected channel. Returns channels that succeeded."""
@@ -212,9 +229,9 @@ class Alertas:
             except NotificacaoError as exc:
                 logger.warning("Telegram falhou para %s: %s", prefs["usuario_id"], exc)
         if prefs.get("whatsapp_verificado") and self.whatsapp.configurado:
-            titulo, detalhes = self._texto_whatsapp(eventos)
+            titulo, texto = self._texto_whatsapp(eventos)
             try:
-                await self.whatsapp.enviar_template(prefs["whatsapp_numero"], titulo, detalhes)
+                await self.whatsapp.enviar_alerta(prefs["whatsapp_numero"], titulo, texto)
                 ok.append("whatsapp")
             except NotificacaoError as exc:
                 logger.warning("WhatsApp falhou para %s: %s", prefs["usuario_id"], exc)
@@ -254,6 +271,8 @@ class Alertas:
                 self.store.marcar_alertas(usuario.id, [e.chave for e in novos])
                 usuarios += 1
                 mensagens += len(enviados)
+            if "whatsapp" in enviados and self.intervalo_whatsapp > 0:
+                await asyncio.sleep(self.intervalo_whatsapp)
         return {"usuarios": usuarios, "mensagens": mensagens}
 
     # --- Vinculação de canais -----------------------------------------------------
@@ -292,8 +311,17 @@ class Alertas:
             whatsapp_verificado=False,
             whatsapp_codigo=codigo,
         )
-        await self.whatsapp.enviar_template(
+        await self.whatsapp.enviar_alerta(
             numero,
             f"Código de verificação {self.servico.config.nome}",
             f"Seu código é {codigo}. Digite-o no portal para ativar os alertas.",
         )
+
+    async def numero_tem_whatsapp(self, numero: str) -> bool:
+        """Check the number on WhatsApp when the provider supports it (Evolution)."""
+        if isinstance(self.whatsapp, EvolutionClient):
+            try:
+                return await self.whatsapp.numero_existe(numero)
+            except NotificacaoError:
+                return True  # don't block the user if the check itself fails
+        return True

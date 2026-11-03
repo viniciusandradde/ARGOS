@@ -21,7 +21,7 @@ from .alertas import TIPOS, TIPOS_PADRAO, Alertas, gerar_codigo
 from .coletor import ConfigColeta, coletar_tudo, loop_coleta
 from .indicadores import Indicadores
 from .mercadopago import MercadoPagoError, validar_assinatura_webhook
-from .notificadores import NotificacaoError, normalizar_whatsapp
+from .notificadores import EvolutionClient, NotificacaoError, normalizar_whatsapp
 from .servico import ErroRadar, RadarService
 from .store import Usuario
 
@@ -423,6 +423,8 @@ def registrar_rotas(
         ultimo = float(servico.store.estado(chave) or 0)
         if datetime.now().timestamp() - ultimo < 60:
             raise ErroRadar("Aguarde um minuto antes de pedir outro código.", 429)
+        if not await al.numero_tem_whatsapp(numero):
+            raise ErroRadar("Este número não tem WhatsApp.")
         servico.store.salvar_estado(chave, str(datetime.now().timestamp()))
         await al.iniciar_whatsapp(usuario, numero)
         return JSONResponse(resumo_alertas(usuario))
@@ -524,3 +526,18 @@ def registrar_rotas(
         return JSONResponse({"resultados": resultados})
 
     rota("/api/admin/coletar", ["POST"], admin(admin_coletar))
+
+    async def admin_whatsapp(request: Request, usuario: Usuario) -> Response:
+        """Evolution instance status; POST returns a pairing code to link the chip."""
+        al = exige_alertas()
+        if not isinstance(al.whatsapp, EvolutionClient) or not al.whatsapp.configurado:
+            raise ErroRadar("Evolution API não configurada.", 503)
+        if request.method == "POST":
+            numero = normalizar_whatsapp(str((await _corpo(request)).get("numero", "")))
+            dados = await al.whatsapp.conectar(numero)
+            return JSONResponse(
+                {"codigo_pareamento": dados.get("pairingCode"), "qr": dados.get("code")}
+            )
+        return JSONResponse({"estado": await al.whatsapp.estado()})
+
+    rota("/api/admin/whatsapp", ["GET", "POST"], admin(admin_whatsapp))

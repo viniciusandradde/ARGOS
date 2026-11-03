@@ -36,43 +36,77 @@ O vínculo usa um código de uso único no link (`/start <código>`), então o c
 > O ARGOS lê as mensagens do bot com `getUpdates`. **Não configure webhook** nesse bot; se já
 > existir um, remova com `https://api.telegram.org/bot<TOKEN>/deleteWebhook`.
 
-## WhatsApp (API oficial da Meta)
+## WhatsApp com Evolution API (padrão nesta versão)
 
-O WhatsApp só permite que empresas iniciem conversas com **templates aprovados**, e a Meta cobra
-por conversa de "utilidade" (valores baixos, em centavos por conversa no Brasil; confira a tabela
-atual da Meta). APIs não oficiais (Evolution, Z-API, Baileys) violam os termos do WhatsApp e o número
-pode ser banido, por isso não são usadas aqui.
+A [Evolution API](https://doc.evolution-api.com) roda no seu servidor e conecta um **chip comum de
+WhatsApp**, como o WhatsApp Web. Não há template, aprovação da Meta nem custo por mensagem.
 
-1. **Conta:** crie um app do tipo *Business* em [developers.facebook.com](https://developers.facebook.com/apps)
-   e adicione o produto **WhatsApp**. Vincule uma conta do **WhatsApp Business** (empresa verificada
-   no Meta Business Suite) e um número de telefone que **não** esteja em uso no app do WhatsApp.
-2. **Template:** em WhatsApp Manager → Modelos de mensagem → Criar:
-   - Categoria: **Utilidade**
-   - Nome: `alerta_argos`
-   - Idioma: **Português (BR)**
-   - Corpo, por exemplo:
-     ```
-     🛰 {{1}}
+> ⚠️ **Não é uma API oficial do WhatsApp.** O número pode ser restrito ou banido se o WhatsApp
+> entender que é envio em massa. Para reduzir o risco:
+> - use um **chip exclusivo** para o ARGOS (nunca o seu número pessoal ou o da empresa);
+> - "aqueça" o número antes, usando-o normalmente por alguns dias;
+> - envie só para quem pediu: o ARGOS já exige a confirmação do número por código;
+> - mantenha `WHATSAPP_INTERVALO_SEG` em 3 segundos ou mais, e um resumo por rodada (já é o padrão).
+>
+> A API oficial da Meta já está implementada (`WHATSAPP_PROVEDOR=meta`) e fica para a próxima versão.
 
-     {{2}}
+### 1. Subir a Evolution API
 
-     Você recebe esta mensagem porque ativou alertas no ARGOS.
-     ```
-   - Envie para aprovação, que costuma levar de minutos a algumas horas. O mesmo template serve para os
-     alertas e para o código de verificação.
-3. **Token permanente:** em Meta Business Suite → Configurações → Usuários do sistema, crie um usuário
-   do sistema, atribua o app e o WhatsApp e gere um token com as permissões `whatsapp_business_messaging`
-   e `whatsapp_business_management`.
-4. Configure:
-   ```bash
-   WHATSAPP_TOKEN=EAAG...
-   WHATSAPP_PHONE_NUMBER_ID=1234567890   # em WhatsApp → Configuração da API
-   WHATSAPP_TEMPLATE=alerta_argos
-   WHATSAPP_TEMPLATE_IDIOMA=pt_BR
-   ```
+No `.env`:
 
-O cliente informa o número, recebe um código de 6 dígitos no WhatsApp e confirma no portal.
-O sistema limita a um código por minuto e cinco tentativas por código.
+```bash
+WHATSAPP_PROVEDOR=evolution
+EVOLUTION_API_URL=http://evolution-api:8080
+EVOLUTION_API_KEY=troque-por-uma-chave-longa      # python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+EVOLUTION_INSTANCIA=argos
+EVOLUTION_DB_SENHA=troque-esta-senha
+```
+
+```bash
+docker compose --profile whatsapp up -d --build
+```
+
+Isso sobe a `evolution-api` e o banco `evolution-postgres`. A Evolution fica acessível só por dentro
+do servidor (`127.0.0.1:8080`) e pela rede interna do Docker.
+
+### 2. Conectar o chip (código de pareamento, sem QR)
+
+```bash
+docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp conectar --numero 5567999999999
+```
+
+O comando cria a instância `argos` e mostra um **código de pareamento**. No celular do chip, abra
+WhatsApp → **Aparelhos conectados** → **Conectar aparelho** → **Conectar com número de telefone**
+e digite o código.
+
+Depois confira e faça um teste:
+
+```bash
+docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp status    # deve mostrar "open"
+docker compose exec coletor uv run python -m mcp_brasil.radar whatsapp teste --numero 5567SEUNUMERO
+```
+
+Administradores também podem usar a API: `GET /api/admin/whatsapp` retorna o estado e
+`POST /api/admin/whatsapp {"numero": "..."}` gera um novo código de pareamento.
+
+### 3. Uso pelo cliente
+
+No portal, o cliente informa o número. O ARGOS **confere se o número tem WhatsApp**, envia um código
+de 6 dígitos e o cliente confirma. O sistema limita a um código por minuto e cinco tentativas por código.
+Os alertas chegam como texto formatado (negrito, itálico e links).
+
+### Se o chip desconectar
+
+O celular precisa ficar ligado e com internet só no pareamento, porque a sessão fica na Evolution.
+Se o WhatsApp encerrar a sessão, `whatsapp status` deixa de mostrar `open`. Rode `whatsapp conectar`
+de novo; os envios que falharem nesse período aparecem no log do coletor.
+
+## WhatsApp com a API oficial da Meta (próxima versão)
+
+O cliente já existe e está testado, mas não é o padrão desta versão. Para usar, defina
+`WHATSAPP_PROVEDOR=meta`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` e crie um template de
+**Utilidade** chamado `alerta_argos` com `{{1}}` (título) e `{{2}}` (detalhes). Na API oficial, as
+quebras de linha do alerta viram " | ", porque a Meta não aceita quebras de linha em parâmetros de template.
 
 ## Testar
 
@@ -88,7 +122,8 @@ O sistema limita a um código por minuto e cinco tentativas por código.
 | Canal | Custo | Observações |
 |---|---|---|
 | Telegram | gratuito | Limite do Telegram: cerca de 30 mensagens por segundo por bot (folgado para este uso) |
-| WhatsApp | por conversa iniciada (categoria utilidade) | Uma conversa dura 24h, e vários alertas no mesmo dia contam como uma só |
+| WhatsApp (Evolution) | só o chip e o servidor | Não oficial: risco de bloqueio do número; use chip exclusivo e envie só para quem confirmou |
+| WhatsApp (Meta, próxima versão) | por conversa iniciada (categoria utilidade) | Oficial, exige template aprovado |
 
-Para reduzir custo no WhatsApp, deixe "Todas as críticas" desligado (já vem assim) e aumente
-`RADAR_COLETA_MINUTOS`.
+Para diminuir o volume (e o risco no WhatsApp), deixe "Todas as críticas" desligado (já vem assim)
+e aumente `RADAR_COLETA_MINUTOS` se precisar.

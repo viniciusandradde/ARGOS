@@ -7,6 +7,9 @@ Uso:
     python -m mcp_brasil.radar criar-chave --email voce@exemplo.com --nome "Claude Desktop"
     python -m mcp_brasil.radar redefinir-senha --email cliente@exemplo.com
     python -m mcp_brasil.radar coletar [--loop] [--etapas noticias,enso]
+    python -m mcp_brasil.radar whatsapp status
+    python -m mcp_brasil.radar whatsapp conectar --numero 5567999999999
+    python -m mcp_brasil.radar whatsapp teste --numero 5567999999999
 """
 
 from __future__ import annotations
@@ -51,7 +54,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_coletar.add_argument("--etapas", default="", help="Ex: noticias,enso (padrão: todas)")
 
+    p_wa = sub.add_parser("whatsapp", help="Evolution API: status, pareamento e teste")
+    p_wa.add_argument("acao", choices=["status", "conectar", "teste"])
+    p_wa.add_argument("--numero", default="", help="Número do chip (conectar) ou destino (teste)")
+
     args = parser.parse_args(argv)
+    if args.comando == "whatsapp":
+        return _whatsapp(args.acao, args.numero)
     if args.comando == "coletar":
         return _coletar(args.loop, [e for e in args.etapas.split(",") if e])
     servico = get_servico()
@@ -87,6 +96,41 @@ def main(argv: list[str] | None = None) -> int:
                 plano = f"{a.plano} até {a.periodo_fim:%d/%m/%Y}" if a and a.periodo_fim else "-"
                 print(f"{u.id:>4}  {u.email:<35} {u.papel:<8} {situacao:<11} {plano}")
     except ErroRadar as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _whatsapp(acao: str, numero: str) -> int:
+    from . import get_alertas
+    from .notificadores import EvolutionClient, NotificacaoError, normalizar_whatsapp
+
+    cliente = get_alertas().whatsapp
+    if not isinstance(cliente, EvolutionClient) or not cliente.configurado:
+        print(
+            "Configure EVOLUTION_API_URL, EVOLUTION_API_KEY e EVOLUTION_INSTANCIA.",
+            file=sys.stderr,
+        )
+        return 1
+    alvo = normalizar_whatsapp(numero) if numero else None
+    try:
+        if acao == "status":
+            print(f"Estado da instância: {asyncio.run(cliente.estado())}  (open = conectado)")
+        elif acao == "conectar":
+            dados = asyncio.run(cliente.conectar(alvo))
+            if dados.get("pairingCode"):
+                print(f"Código de pareamento: {dados['pairingCode']}")
+                print("No celular do chip: WhatsApp → Aparelhos conectados → Conectar aparelho →")
+                print("'Conectar com número de telefone' e digite o código acima.")
+            else:
+                print("Sem código de pareamento. Use --numero ou leia o QR no Evolution Manager.")
+        else:
+            if alvo is None:
+                print("Informe --numero para o teste.", file=sys.stderr)
+                return 1
+            asyncio.run(cliente.enviar_alerta(alvo, "Teste ARGOS", "Envio pela Evolution API OK."))
+            print(f"Mensagem enviada para {alvo}.")
+    except NotificacaoError as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 1
     return 0

@@ -113,8 +113,15 @@ RADAR_PLANO_TESTE: str = os.environ.get("RADAR_PLANO_TESTE", "essencial")
 # Alerts — Telegram (free, create the bot with @BotFather)
 TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_USERNAME: str = os.environ.get("TELEGRAM_BOT_USERNAME", "").lstrip("@")
-# Alerts — WhatsApp Cloud API (Meta, official). Proactive messages need an approved template
-# whose body has two text parameters: {{1}} title and {{2}} details.
+# Alerts — WhatsApp provider: "evolution" (default, self-hosted Evolution API) or
+# "meta" (official Cloud API, planned for the next version).
+WHATSAPP_PROVEDOR: str = os.environ.get("WHATSAPP_PROVEDOR", "evolution").strip().lower()
+EVOLUTION_API_URL: str = os.environ.get("EVOLUTION_API_URL", "").strip()
+EVOLUTION_API_KEY: str = os.environ.get("EVOLUTION_API_KEY", "")
+EVOLUTION_INSTANCIA: str = os.environ.get("EVOLUTION_INSTANCIA", "argos")
+# Seconds between WhatsApp recipients in each alert round
+WHATSAPP_INTERVALO_SEG: float = float(os.environ.get("WHATSAPP_INTERVALO_SEG", "3"))
+# Meta Cloud API (next version): approved template with {{1}} title and {{2}} details.
 WHATSAPP_TOKEN: str = os.environ.get("WHATSAPP_TOKEN", "")
 WHATSAPP_PHONE_NUMBER_ID: str = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_TEMPLATE: str = os.environ.get("WHATSAPP_TEMPLATE", "alerta_argos")

@@ -75,20 +75,28 @@ def config_coleta_from_settings() -> ConfigColeta:
 def get_alertas() -> Alertas:
     from mcp_brasil import settings
 
-    from .notificadores import TelegramClient, WhatsAppClient
+    from .notificadores import EvolutionClient, TelegramClient, WhatsAppClient
 
-    return Alertas(
-        get_servico(),
-        get_indicadores(),
-        TelegramClient(settings.TELEGRAM_BOT_TOKEN),
-        WhatsAppClient(
+    whatsapp: EvolutionClient | WhatsAppClient
+    if settings.WHATSAPP_PROVEDOR == "meta":
+        whatsapp = WhatsAppClient(
             settings.WHATSAPP_TOKEN,
             settings.WHATSAPP_PHONE_NUMBER_ID,
             template=settings.WHATSAPP_TEMPLATE,
             idioma=settings.WHATSAPP_TEMPLATE_IDIOMA,
             versao=settings.WHATSAPP_API_VERSAO,
-        ),
+        )
+    else:
+        whatsapp = EvolutionClient(
+            settings.EVOLUTION_API_URL, settings.EVOLUTION_API_KEY, settings.EVOLUTION_INSTANCIA
+        )
+    return Alertas(
+        get_servico(),
+        get_indicadores(),
+        TelegramClient(settings.TELEGRAM_BOT_TOKEN),
+        whatsapp,
         max_itens=settings.RADAR_ALERTAS_MAX_ITENS,
+        intervalo_whatsapp=settings.WHATSAPP_INTERVALO_SEG,
     )
 
 
