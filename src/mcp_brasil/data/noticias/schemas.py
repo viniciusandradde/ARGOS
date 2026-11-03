@@ -15,3 +15,4 @@ class Noticia(BaseModel):
     link: str
     resumo: str = ""
     publicado_em: datetime | None = None
+    nivel: str = "normal"  # normal | alto | critico (see criticidade.py)

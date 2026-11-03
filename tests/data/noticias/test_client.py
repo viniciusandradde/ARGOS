@@ -7,6 +7,12 @@ import respx
 from mcp_brasil.data.noticias import client
 from mcp_brasil.data.noticias.constants import FONTES
 
+
+@pytest.fixture(autouse=True)
+def _limpar_cache() -> None:
+    client.buscar_feed.cache.clear()  # type: ignore[attr-defined]
+
+
 RSS2 = """<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0"><channel><title>AB</title>
 <item><title>Receita libera &amp; lote do IR</title>

@@ -1,14 +1,15 @@
-"""Feature Notícias — feeds RSS oficiais do governo e do Legislativo."""
+"""Feature Notícias — feeds RSS do Brasil e do mundo, com criticidade."""
 
 from mcp_brasil._shared.feature import FeatureMeta
 
 FEATURE_META = FeatureMeta(
     name="noticias",
     description=(
-        "Notícias oficiais via RSS: Agência Brasil (política, economia, saúde, justiça), "
-        "Agência Câmara, Agência Senado, Planalto, Agência Gov, Banco Central e ANS."
+        "Notícias do Brasil e do mundo via RSS (48 fontes): Agência Brasil, Câmara, Senado, "
+        "Planalto, Banco Central, INMET, OMS, ECDC, ONU, BBC, Guardian, NYT, DW, RFI, "
+        "Fed, BCE, ReliefWeb, USGS — com filtros e classificação de criticidade."
     ),
-    version="0.1.0",
+    version="0.2.0",
     requires_auth=False,
-    tags=["noticias", "rss", "agencia-brasil", "camara", "senado", "planalto", "monitoramento"],
+    tags=["noticias", "rss", "internacional", "saude", "clima", "economia", "monitoramento"],
 )

@@ -15,9 +15,11 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
+from mcp_brasil._shared.cache import ttl_cache
 from mcp_brasil._shared.http_client import http_get_text
 
-from .constants import FONTES
+from .constants import CACHE_TTL_SEGUNDOS, FONTES
+from .criticidade import classificar
 from .schemas import Noticia
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ def _eh_noticia(titulo: str, link: str) -> bool:
     return bool(titulo) and bool(link) and not titulo.isdigit() and not _NAO_NOTICIA.search(link)
 
 
-def parse_feed(xml_text: str, fonte: str) -> list[Noticia]:
+def parse_feed(xml_text: str, fonte: str, max_itens: int = 100) -> list[Noticia]:
     """Parse an RSS/RDF/Atom document into normalized news items."""
     try:
         root = ET.fromstring(xml_text.lstrip("﻿").strip())
@@ -66,6 +68,8 @@ def parse_feed(xml_text: str, fonte: str) -> list[Noticia]:
 
     noticias: list[Noticia] = []
     for item in root.iter():
+        if len(noticias) >= max_itens:
+            break
         if _local(item.tag) not in ("item", "entry"):
             continue
         campos: dict[str, str] = {}
@@ -85,18 +89,21 @@ def parse_feed(xml_text: str, fonte: str) -> list[Noticia]:
             or campos.get("published")
             or campos.get("updated")
         )
+        resumo = _limpar(campos.get("description") or campos.get("summary"))[:400]
         noticias.append(
             Noticia(
                 fonte=fonte,
                 titulo=titulo,
                 link=link,
-                resumo=_limpar(campos.get("description") or campos.get("summary"))[:400],
+                resumo=resumo,
                 publicado_em=parse_data(data),
+                nivel=classificar(f"{titulo} {resumo}"),
             )
         )
     return noticias
 
 
+@ttl_cache(ttl=CACHE_TTL_SEGUNDOS)
 async def buscar_feed(fonte_id: str) -> list[Noticia]:
     """Download and parse one feed by its id (see constants.FONTES)."""
     fonte = FONTES[fonte_id]

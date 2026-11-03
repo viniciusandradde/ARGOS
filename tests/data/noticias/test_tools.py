@@ -41,10 +41,23 @@ class TestBuscarNoticias:
         assert "Dengue" not in result
         assert "indisponíveis agora: ans" in result
 
-    async def test_category_selects_feeds(self, mock_varios: AsyncMock) -> None:
-        await tools.buscar_noticias(AsyncMock(), categoria="saude")
+    async def test_category_and_scope_select_feeds(self, mock_varios: AsyncMock) -> None:
+        await tools.buscar_noticias(AsyncMock(), categoria="saude", escopo="mundo")
         ids = mock_varios.call_args.args[0]
-        assert ids and all("saude" in i or i == "ans" for i in ids)
+        assert "oms" in ids and "ans" not in ids
+
+    async def test_language_filter(self, mock_varios: AsyncMock) -> None:
+        await tools.buscar_noticias(AsyncMock(), idioma="pt", escopo="mundo")
+        ids = mock_varios.call_args.args[0]
+        assert "bbc_brasil" in ids and "bbc_mundo" not in ids
+
+    async def test_exclude_terms(self, mock_varios: AsyncMock) -> None:
+        result = await tools.buscar_noticias(AsyncMock(), excluir=["dengue"])
+        assert "Dengue" not in result and "Reforma" in result
+
+    async def test_invalid_scope_and_level(self, mock_varios: AsyncMock) -> None:
+        assert "Escopo inválido" in await tools.buscar_noticias(AsyncMock(), escopo="lua")
+        assert "Nível inválido" in await tools.buscar_noticias(AsyncMock(), nivel_minimo="x")
 
     async def test_invalid_category(self, mock_varios: AsyncMock) -> None:
         assert "inválida" in await tools.buscar_noticias(AsyncMock(), categoria="esportes")
