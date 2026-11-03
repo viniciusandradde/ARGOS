@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import pathlib
 from collections.abc import Awaitable, Callable
+from datetime import date
 from typing import Any
 
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
+from mcp_brasil.data.noticias.filtros import Filtro
+
+from . import painel as painel_dados
+from .coletor import ConfigColeta, coletar_tudo, loop_coleta
+from .indicadores import Indicadores
 from .mercadopago import MercadoPagoError, validar_assinatura_webhook
 from .servico import ErroRadar, RadarService
 from .store import Usuario
@@ -20,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 HEADER_SESSAO = "x-radar-sessao"
 _PORTAL = pathlib.Path(__file__).with_name("portal.html")
+_PAINEL = pathlib.Path(__file__).with_name("painel.html")
 
 Handler = Callable[[Request], Awaitable[Response]]
 
@@ -40,7 +48,31 @@ def _base_url(servico: RadarService, request: Request) -> str:
     return servico.config.base_url or str(request.base_url).rstrip("/")
 
 
-def registrar_rotas(mcp: FastMCP[Any], servico: RadarService) -> None:
+def _pagina(caminho: pathlib.Path, nome: str) -> HTMLResponse:
+    return HTMLResponse(caminho.read_text(encoding="utf-8").replace("{{NOME}}", nome))
+
+
+def registrar_rotas(
+    mcp: FastMCP[Any],
+    servico: RadarService,
+    indicadores: Indicadores | None = None,
+    coleta: ConfigColeta | None = None,
+    coletor_embutido_minutos: int = 0,
+) -> None:
+    ind = indicadores or Indicadores(":memory:")
+    cfg_coleta = coleta or ConfigColeta()
+    tarefas: dict[str, asyncio.Task[Any]] = {}
+
+    def garantir_coletor() -> None:
+        """Start the in-process collector loop on first use (single-container deployments)."""
+        if coletor_embutido_minutos <= 0:
+            return
+        tarefa = tarefas.get("loop")
+        if tarefa is None or tarefa.done():
+            tarefas["loop"] = asyncio.create_task(
+                loop_coleta(ind, cfg_coleta, coletor_embutido_minutos)
+            )
+
     def tratar(handler: Handler) -> Handler:
         async def wrapper(request: Request) -> Response:
             try:
@@ -75,15 +107,23 @@ def registrar_rotas(mcp: FastMCP[Any], servico: RadarService) -> None:
 
     # --- Portal -------------------------------------------------------------
 
+    nome = servico.config.nome
+
     async def portal(request: Request) -> Response:
-        return HTMLResponse(_PORTAL.read_text(encoding="utf-8"))
+        return _pagina(_PORTAL, nome)
 
     rota("/", ["GET"], portal)
     rota("/conta", ["GET"], portal)
 
+    async def painel_html(request: Request) -> Response:
+        return _pagina(_PAINEL, nome)
+
+    rota("/painel", ["GET"], painel_html)
+
     async def planos(request: Request) -> Response:
         return JSONResponse(
             {
+                "nome": nome,
                 "planos": [p.to_dict() for p in servico.config.planos.values()],
                 "pagamentos_ativos": servico.mp.configurado,
             }
@@ -192,6 +232,108 @@ def registrar_rotas(mcp: FastMCP[Any], servico: RadarService) -> None:
 
     rota("/webhooks/mercadopago", ["POST"], webhook)
 
+    # --- Sala de situação, temas e pesquisa de preços -----------------------
+
+    def assinante(handler: Callable[[Request, Usuario], Awaitable[Response]]) -> Handler:
+        async def wrapper(request: Request, usuario: Usuario) -> Response:
+            if not servico.acesso_ativo(usuario):
+                return _erro("A sala de situação é exclusiva para assinantes.", 402)
+            return await handler(request, usuario)
+
+        return logado(wrapper)
+
+    async def painel_api(request: Request, usuario: Usuario) -> Response:
+        garantir_coletor()
+        q = request.query_params
+        feed = Filtro(
+            termos=[q["q"]] if q.get("q") else [],
+            categorias=[q["categoria"]] if q.get("categoria") else [],
+            escopo=q.get("escopo", "todos"),
+            nivel_minimo=q.get("nivel", "normal"),
+        )
+        dados = await asyncio.to_thread(
+            painel_dados.montar,
+            ind,
+            temas=servico.store.listar_temas(usuario.id),
+            area_inmet=servico.config.area_inmet,
+            cidade_precos=q.get("cidade_precos", servico.config.cidade_precos),
+            feed_filtro=feed,
+        )
+        dados["nome"] = nome
+        dados["cidades"] = cfg_coleta.cidades
+        dados["admin"] = usuario.admin
+        return JSONResponse(dados)
+
+    rota("/api/painel", ["GET"], assinante(painel_api))
+
+    async def listar_temas(request: Request, usuario: Usuario) -> Response:
+        return JSONResponse({"temas": servico.store.listar_temas(usuario.id)})
+
+    rota("/api/temas", ["GET"], logado(listar_temas))
+
+    async def criar_tema(request: Request, usuario: Usuario) -> Response:
+        if len(servico.store.listar_temas(usuario.id)) >= 20:
+            return _erro("Limite de 20 temas por conta.")
+        try:
+            tema = painel_dados.validar_tema(await _corpo(request))
+        except ValueError as exc:
+            return _erro(str(exc))
+        nome_tema = tema.pop("nome")
+        tema_id = servico.store.criar_tema(usuario.id, nome_tema, tema)
+        return JSONResponse({"id": tema_id, "nome": nome_tema, **tema}, status_code=201)
+
+    rota("/api/temas", ["POST"], assinante(criar_tema))
+
+    async def remover_tema(request: Request, usuario: Usuario) -> Response:
+        if not servico.store.remover_tema(usuario.id, int(request.path_params["tema_id"])):
+            return _erro("Tema não encontrado.", 404)
+        return JSONResponse({"ok": True})
+
+    rota("/api/temas/{tema_id:int}", ["DELETE"], logado(remover_tema))
+
+    async def listar_precos(request: Request, usuario: Usuario) -> Response:
+        cidade = request.query_params.get("cidade") or None
+        return JSONResponse(
+            {
+                "medias": ind.medias_precos(cidade),
+                "precos": ind.listar_precos(cidade, 200),
+            }
+        )
+
+    rota("/api/precos", ["GET"], assinante(listar_precos))
+
+    async def adicionar_preco(request: Request, usuario: Usuario) -> Response:
+        dados = await _corpo(request)
+        try:
+            preco = float(str(dados.get("preco", "")).replace(",", "."))
+        except ValueError:
+            return _erro("Preço inválido.")
+        produto = str(dados.get("produto", "")).strip()[:80]
+        mercado = str(dados.get("mercado", "")).strip()[:80]
+        cidade = str(dados.get("cidade", servico.config.cidade_precos)).strip()[:80]
+        if not produto or not mercado or preco <= 0:
+            return _erro("Informe produto, mercado e um preço maior que zero.")
+        data = str(dados.get("data") or "")[:10] or date.today().isoformat()
+        preco_id = ind.adicionar_preco(
+            produto=produto,
+            mercado=mercado,
+            cidade=cidade,
+            preco=round(preco, 2),
+            unidade=str(dados.get("unidade", "un")).strip()[:20] or "un",
+            data=data,
+            usuario_id=usuario.id,
+        )
+        return JSONResponse({"id": preco_id}, status_code=201)
+
+    rota("/api/precos", ["POST"], assinante(adicionar_preco))
+
+    async def remover_preco(request: Request, usuario: Usuario) -> Response:
+        preco_id = int(request.path_params["preco_id"])
+        ok = ind.remover_preco(preco_id, None if usuario.admin else usuario.id)
+        return JSONResponse({"ok": True}) if ok else _erro("Registro não encontrado.", 404)
+
+    rota("/api/precos/{preco_id:int}", ["DELETE"], logado(remover_preco))
+
     # --- Administração ------------------------------------------------------
 
     async def admin_usuarios(request: Request, usuario: Usuario) -> Response:
@@ -234,3 +376,9 @@ def registrar_rotas(mcp: FastMCP[Any], servico: RadarService) -> None:
         return JSONResponse({"pagamentos": servico.store.listar_pagamentos()})
 
     rota("/api/admin/pagamentos", ["GET"], admin(admin_pagamentos))
+
+    async def admin_coletar(request: Request, usuario: Usuario) -> Response:
+        resultados = await coletar_tudo(ind, cfg_coleta)
+        return JSONResponse({"resultados": resultados})
+
+    rota("/api/admin/coletar", ["POST"], admin(admin_coletar))

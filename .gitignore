@@ -30,3 +30,4 @@ AGENTS.md
 
 # Radar Brasil — local database
 data/radar.db*
+data/indicadores.db*

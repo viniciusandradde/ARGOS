@@ -7,7 +7,9 @@ Ativada com ``MCP_BRASIL_AUTH_MODE=radar``. Adiciona:
 - planos com limite diário de consultas;
 - cobrança via Mercado Pago (assinatura recorrente ou pagamento avulso com Pix/boleto)
   e webhook em ``/webhooks/mercadopago``;
-- endpoints de administração (``/api/admin/*``).
+- endpoints de administração (``/api/admin/*``);
+- sala de situação em tempo real (``/painel``), temas de notícias por usuário,
+  pesquisa de preços e coletor de indicadores (``indicadores.db``, lido pelo Metabase).
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from .coletor import ConfigColeta
+from .indicadores import Indicadores
 from .planos import carregar_planos
 from .servico import RadarConfig, RadarService
 from .store import Store
@@ -51,7 +55,26 @@ def config_from_settings() -> RadarConfig:
         sessao_horas=settings.RADAR_SESSAO_HORAS,
         teste_dias=settings.RADAR_TESTE_DIAS,
         plano_teste=settings.RADAR_PLANO_TESTE,
+        nome=settings.RADAR_NOME,
+        area_inmet=settings.RADAR_AREA_INMET,
+        cidade_precos=settings.RADAR_CIDADES[0] if settings.RADAR_CIDADES else "",
     )
+
+
+def config_coleta_from_settings() -> ConfigColeta:
+    from mcp_brasil import settings
+
+    return ConfigColeta(
+        cidades=settings.RADAR_CIDADES,
+        alimentos_localidades=settings.RADAR_ALIMENTOS_LOCALIDADES,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_indicadores() -> Indicadores:
+    from mcp_brasil import settings
+
+    return Indicadores(settings.RADAR_INDICADORES_DB)
 
 
 @lru_cache(maxsize=1)
@@ -68,13 +91,25 @@ def build_verifier() -> Any:
     return RadarTokenVerifier(servico, base_url=servico.config.base_url)
 
 
-def install(mcp: FastMCP[Any], servico: RadarService | None = None) -> RadarService:
-    """Register the portal/billing routes and the quota middleware on ``mcp``."""
+def install(
+    mcp: FastMCP[Any],
+    servico: RadarService | None = None,
+    indicadores: Indicadores | None = None,
+) -> RadarService:
+    """Register the portal, situation room, billing routes and the quota middleware."""
+    from mcp_brasil import settings
+
     from .auth import QuotaMiddleware
     from .rotas import registrar_rotas
 
     servico = servico or get_servico()
-    registrar_rotas(mcp, servico)
+    registrar_rotas(
+        mcp,
+        servico,
+        indicadores if indicadores is not None else get_indicadores(),
+        config_coleta_from_settings(),
+        settings.RADAR_COLETA_MINUTOS if settings.RADAR_COLETOR_EMBUTIDO else 0,
+    )
     mcp.add_middleware(QuotaMiddleware(servico))
     logger.info(
         "Radar Brasil ativo: %d planos, banco em %s",

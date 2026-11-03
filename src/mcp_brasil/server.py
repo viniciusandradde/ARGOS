@@ -26,7 +26,7 @@ from ._shared.auth import build_auth
 from ._shared.batch import build_dispatch, execute_batch
 from ._shared.feature import FeatureRegistry
 from ._shared.lifespan import http_lifespan
-from .settings import AUTH_MODE, MCP_BRASIL_BASE_URL, TOOL_SEARCH
+from .settings import AUTH_MODE, MCP_BRASIL_BASE_URL, RADAR_NOME, TOOL_SEARCH
 
 logging.basicConfig(
     level=logging.INFO,
@@ -90,7 +90,7 @@ _LOGO_URL = f"{MCP_BRASIL_BASE_URL.rstrip('/')}/logo.png" if MCP_BRASIL_BASE_URL
 
 # Create the root server
 mcp = FastMCP(
-    "Radar Brasil 🇧🇷",
+    f"{RADAR_NOME} 🇧🇷",
     lifespan=http_lifespan,
     auth=auth,
     icons=[mt.Icon(src=_LOGO_URL, mimeType="image/png")],

@@ -7,6 +7,7 @@ esta classe por uma implementação em PostgreSQL com a mesma interface.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -52,6 +53,13 @@ CREATE TABLE IF NOT EXISTS pagamentos (
     creditado INTEGER NOT NULL DEFAULT 0,
     criado_em TEXT NOT NULL,
     atualizado_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS temas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    nome TEXT NOT NULL,
+    config TEXT NOT NULL,
+    criado_em TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS uso (
     usuario_id INTEGER NOT NULL,
@@ -348,6 +356,27 @@ class Store:
                 (usuario_id,),
             )
         return [dict(r) for r in rows]
+
+    # --- Temas (filtros de notícias configurados pelo usuário) -------------
+
+    def criar_tema(self, usuario_id: int, nome: str, config: dict[str, Any]) -> int:
+        cur = self._exec(
+            "INSERT INTO temas (usuario_id, nome, config, criado_em) VALUES (?,?,?,?)",
+            (usuario_id, nome, json.dumps(config, ensure_ascii=False), _iso(agora())),
+        )
+        return int(cur.lastrowid or 0)
+
+    def listar_temas(self, usuario_id: int) -> list[dict[str, Any]]:
+        rows = self._all(
+            "SELECT id, nome, config FROM temas WHERE usuario_id = ? ORDER BY id", (usuario_id,)
+        )
+        return [{"id": r["id"], "nome": r["nome"], **json.loads(r["config"])} for r in rows]
+
+    def remover_tema(self, usuario_id: int, tema_id: int) -> bool:
+        cur = self._exec(
+            "DELETE FROM temas WHERE id = ? AND usuario_id = ?", (tema_id, usuario_id)
+        )
+        return cur.rowcount > 0
 
     # --- Uso diário -------------------------------------------------------
 

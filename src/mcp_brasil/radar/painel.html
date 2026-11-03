@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NOME}} · Sala de Situação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #030805; --panel: #06110a; --line: #0f3a1f; --text: #b8ffcf; --dim: #4f8f63;
+    --green: #33ff77; --amber: #ffb000; --red: #ff3355; --cyan: #36d6ff; --violet: #b48cff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 13px/1.45 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+         min-height: 100vh; }
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px); }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: var(--green); text-decoration: underline; }
+  .glow { text-shadow: 0 0 6px rgba(51,255,119,.55); }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(3,8,5,.96);
+           border-bottom: 1px solid var(--line); }
+  .top { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 10px 16px; }
+  .brand { font-weight: 800; font-size: 18px; letter-spacing: .18em; color: var(--green); }
+  .brand small { color: var(--dim); font-weight: 400; letter-spacing: .08em; font-size: 12px; }
+  .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+         box-shadow: 0 0 8px var(--green); margin-right: 6px; animation: pulse 1.6s infinite; }
+  .led.off { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .stat { color: var(--dim); }
+  .stat b { color: var(--text); font-weight: 600; }
+  .sp { flex: 1; }
+  button, select, input { font: inherit; color: var(--text); background: #04140a; border: 1px solid var(--line);
+                          border-radius: 3px; padding: 5px 9px; }
+  button { cursor: pointer; color: var(--green); }
+  button:hover { border-color: var(--green); }
+  input::placeholder { color: var(--dim); }
+  .ticker { overflow: hidden; white-space: nowrap; border-top: 1px solid var(--line);
+            background: linear-gradient(90deg, rgba(255,51,85,.15), transparent 30%); }
+  .ticker span.lbl { position: absolute; z-index: 2; background: var(--red); color: #000; font-weight: 800;
+                     padding: 4px 10px; }
+  .ticker .track { display: inline-block; padding: 4px 0 4px 100%; animation: scroll 140s linear infinite; }
+  .ticker .track a { color: #ffd0d8; margin-right: 46px; }
+  .ticker .track a::before { content: "■ "; color: var(--red); }
+  @keyframes scroll { to { transform: translateX(-100%); } }
+  main { padding: 14px 16px 40px; display: grid; gap: 14px;
+         grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); }
+  .p { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; min-width: 0;
+       display: flex; flex-direction: column; max-height: 560px; }
+  .p.wide { grid-column: 1 / -1; max-height: none; }
+  @media (min-width: 1100px) { .p.w2 { grid-column: span 2; } }
+  .p > h2 { margin: 0; font-size: 12px; letter-spacing: .14em; color: var(--green); padding: 8px 12px;
+            border-bottom: 1px dashed var(--line); display: flex; justify-content: space-between; gap: 8px; }
+  .p > h2 small { color: var(--dim); letter-spacing: 0; font-weight: 400; }
+  .body { padding: 10px 12px; overflow: auto; }
+  .big { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .red { color: var(--red); } .amber { color: var(--amber); } .green { color: var(--green); }
+  .cyan { color: var(--cyan); } .dim { color: var(--dim); } .violet { color: var(--violet); }
+  .blink { animation: pulse 1s infinite; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: var(--dim); font-weight: 400; border-bottom: 1px solid var(--line); padding: 4px 6px; }
+  td { padding: 4px 6px; border-bottom: 1px solid rgba(15,58,31,.5); vertical-align: top; }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  .lst { list-style: none; margin: 0; padding: 0; }
+  .lst li { padding: 6px 0; border-bottom: 1px solid rgba(15,58,31,.6); }
+  .lst li .meta { color: var(--dim); font-size: 11px; }
+  .tag { display: inline-block; border: 1px solid currentColor; border-radius: 2px; padding: 0 5px;
+         font-size: 10px; margin-right: 6px; letter-spacing: .06em; }
+  .blk { letter-spacing: -1px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .tabs button.on { background: var(--green); color: #000; border-color: var(--green); }
+  .msg { padding: 40px 16px; text-align: center; color: var(--amber); }
+  form.cfg { display: grid; gap: 6px; margin-top: 8px; }
+  form.cfg label { color: var(--dim); font-size: 11px; }
+  .chk { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  svg { display: block; }
+  .hidden { display: none !important; }
+  @media (max-width: 520px) { .big { font-size: 26px; } .top { padding: 8px 12px; } main { padding: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand glow">{{NOME}} <small>// SALA DE SITUAÇÃO</small></div>
+    <span class="stat"><span id="led" class="led"></span><b id="estado">CONECTANDO</b></span>
+    <span class="stat">BRT <b id="relogio">--:--:--</b></span>
+    <span class="stat">UTC <b id="utc">--:--</b></span>
+    <span class="stat">CRÍTICOS <b id="n-crit" class="red">0</b> · ALTOS <b id="n-alto" class="amber">0</b> · 7 DIAS <b id="n-total">0</b></span>
+    <span class="sp"></span>
+    <span class="stat">ATUALIZA EM <b id="contagem">60</b>s</span>
+    <button id="btn-atualizar" type="button">[ATUALIZAR]</button>
+    <button id="btn-coletar" class="hidden" type="button">[COLETAR AGORA]</button>
+    <a href="/conta" class="stat">[CONTA]</a>
+  </div>
+  <div class="ticker"><span class="lbl">ALERTA</span><div id="ticker" class="track"></div></div>
+</header>
+
+<div id="aviso" class="msg hidden"></div>
+
+<main id="grade">
+  <section class="p"><h2>[ EL NIÑO // NOAA CPC ] <small id="enso-at"></small></h2><div class="body" id="enso"></div></section>
+  <section class="p"><h2>[ BIOVIGILÂNCIA // INFODENGUE ] <small>arboviroses</small></h2><div class="body" id="arbo"></div></section>
+  <section class="p"><h2>[ RADAR DE SURTOS // OMS · ECDC · ONU ] <small id="surtos-n"></small></h2><div class="body"><ul class="lst" id="surtos"></ul></div></section>
+  <section class="p"><h2>[ ALERTAS CRÍTICOS // MUNDO ] <small id="crit-n"></small></h2><div class="body"><ul class="lst" id="criticos"></ul></div></section>
+  <section class="p"><h2>[ CLIMA // OPEN-METEO · INMET ]</h2><div class="body" id="clima"></div></section>
+  <section class="p w2"><h2>[ ALIMENTOS // IPCA-IBGE ] <small id="ipca-mes"></small></h2><div class="body" id="alimentos"></div></section>
+  <section class="p"><h2>[ PREÇOS NOS MERCADOS // PESQUISA PRÓPRIA ] <small id="precos-cidade"></small></h2>
+    <div class="body"><div id="precos"></div>
+      <form id="form-preco" class="cfg">
+        <div class="row"><input id="pr-produto" placeholder="produto (ex: arroz 5kg)" required style="flex:2;min-width:150px">
+          <input id="pr-mercado" placeholder="mercado" required style="flex:1;min-width:110px"></div>
+        <div class="row"><input id="pr-preco" placeholder="preço R$" inputmode="decimal" required style="width:100px">
+          <input id="pr-unidade" placeholder="un" value="un" style="width:70px">
+          <input id="pr-data" type="date" style="width:150px"><button type="submit">[+ REGISTRAR]</button></div>
+      </form></div></section>
+  <section class="p"><h2>[ CÂMBIO // BCE ] <small id="cambio-data"></small></h2><div class="body" id="cambio"></div></section>
+  <section class="p"><h2>[ SISMOS // USGS · DESASTRES ]</h2><div class="body" id="sismos"></div></section>
+  <section class="p"><h2>[ STATUS DAS COLETAS ]</h2><div class="body" id="coletas"></div></section>
+
+  <section class="p wide"><h2>[ FEED GLOBAL // 48 FONTES ] <small id="feed-n"></small></h2>
+    <div class="body">
+      <div class="tabs" id="abas"></div>
+      <div class="row" id="filtros">
+        <input id="f-q" placeholder="buscar termo..." style="flex:1;min-width:160px">
+        <select id="f-escopo"><option value="todos">brasil + mundo</option><option value="brasil">brasil</option><option value="mundo">mundo</option></select>
+        <select id="f-cat"><option value="">todas categorias</option></select>
+        <select id="f-nivel"><option value="normal">todos níveis</option><option value="alto">alto+</option><option value="critico">crítico</option></select>
+        <button id="f-aplicar" type="button">[FILTRAR]</button>
+      </div>
+      <ul class="lst" id="feed" style="max-height:620px;overflow:auto"></ul>
+    </div></section>
+
+  <section class="p wide"><h2>[ CONFIGURAÇÃO // TEMAS MONITORADOS ] <small>cada tema vira uma aba do feed</small></h2>
+    <div class="body">
+      <div id="lista-temas" class="row"></div>
+      <form id="form-tema" class="cfg">
+        <div class="row"><input id="t-nome" placeholder="nome do tema (ex: Reforma tributária)" required style="flex:1;min-width:200px">
+          <select id="t-escopo"><option value="todos">brasil + mundo</option><option value="brasil">brasil</option><option value="mundo">mundo</option></select>
+          <select id="t-nivel"><option value="normal">todos níveis</option><option value="alto">alto+</option><option value="critico">só crítico</option></select></div>
+        <input id="t-termos" placeholder="termos separados por vírgula (ex: imposto, IBS, CBS, reforma tributária)">
+        <input id="t-excluir" placeholder="excluir termos (ex: futebol, novela)">
+        <label>categorias (vazio = todas)</label><div class="chk" id="t-cats"></div>
+        <div><button type="submit">[+ CRIAR TEMA]</button> <span id="t-msg" class="amber"></span></div>
+      </form>
+    </div></section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const CATS = { geral: "geral", politica: "política", economia: "economia", saude: "saúde",
+    epidemias: "epidemias", clima: "clima", desastres: "desastres", justica: "justiça",
+    legislativo: "legislativo", governo: "governo" };
+  const NIVEL_COR = { critico: "red", alto: "amber", normal: "dim" };
+  const ARBO = { 1: ["green", "■□□□", "VERDE"], 2: ["amber", "■■□□", "AMARELO"], 3: ["amber", "■■■□", "LARANJA"], 4: ["red", "■■■■", "VERMELHO"] };
+  const TEMPO = { 0: "céu limpo", 1: "sol", 2: "parc. nublado", 3: "nublado", 45: "neblina", 51: "garoa", 61: "chuva fraca",
+    63: "chuva", 65: "chuva forte", 80: "pancadas", 81: "pancadas fortes", 82: "pancadas violentas", 95: "trovoadas", 96: "trovoadas c/ granizo" };
+  let sessao = null, dados = null, abaAtual = "feed", restante = 60;
+  try { sessao = localStorage.getItem("radar_sessao"); } catch (_) {}
+
+  function el(tag, attrs = {}, ...filhos) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "on") for (const [ev, fn] of Object.entries(v)) n.addEventListener(ev, fn);
+      else if (k === "class") n.className = v; else n.setAttribute(k, v);
+    }
+    for (const f of filhos) if (f != null) n.append(f instanceof Node ? f : document.createTextNode(String(f)));
+    return n;
+  }
+  const num = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pct = (v) => v == null ? el("span", { class: "dim" }, "—") :
+    el("span", { class: v >= 3 ? "red" : v > 0 ? "amber" : v <= -3 ? "cyan" : "green" }, (v > 0 ? "▲ +" : v < 0 ? "▼ " : "  ") + num(v) + "%");
+  function atras(iso) {
+    if (!iso) return "";
+    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (s < 3600) return Math.max(1, Math.round(s / 60)) + "min";
+    if (s < 86400) return Math.round(s / 3600) + "h";
+    return Math.round(s / 86400) + "d";
+  }
+  function spark(valores, cor, w = 300, h = 46, zero = false) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`); svg.setAttribute("width", "100%"); svg.setAttribute("height", h);
+    if (valores.length < 2) return svg;
+    const min = Math.min(...valores, zero ? 0 : Infinity), max = Math.max(...valores, zero ? 0 : -Infinity);
+    const y = (v) => h - 4 - ((v - min) / ((max - min) || 1)) * (h - 8);
+    const pts = valores.map((v, i) => `${(i / (valores.length - 1)) * w},${y(v)}`).join(" ");
+    if (zero) { const l = document.createElementNS(ns, "line"); l.setAttribute("x1", 0); l.setAttribute("x2", w);
+      l.setAttribute("y1", y(0)); l.setAttribute("y2", y(0)); l.setAttribute("stroke", "#0f3a1f"); l.setAttribute("stroke-dasharray", "3 3"); svg.append(l); }
+    const pl = document.createElementNS(ns, "polyline");
+    pl.setAttribute("points", pts); pl.setAttribute("fill", "none"); pl.setAttribute("stroke", cor); pl.setAttribute("stroke-width", "2");
+    svg.append(pl);
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", w); c.setAttribute("cy", y(valores[valores.length - 1])); c.setAttribute("r", 3); c.setAttribute("fill", cor);
+    svg.append(c);
+    return svg;
+  }
+  function itemNoticia(n) {
+    return el("li", {},
+      el("span", { class: "tag " + NIVEL_COR[n.nivel] }, n.nivel.toUpperCase()),
+      el("a", { href: n.link, target: "_blank", rel: "noopener" }, n.titulo),
+      el("div", { class: "meta" }, `${n.fonte_nome} · ${CATS[n.categoria] || n.categoria} · ${n.escopo} · há ${atras(n.publicado_em)}`));
+  }
+  const vazio = (t) => el("p", { class: "dim" }, t);
+
+  async function api(caminho, opts = {}) {
+    const headers = { "Content-Type": "application/json", "X-Radar-Sessao": sessao || "" };
+    const r = await fetch(caminho, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(corpo.erro || "HTTP " + r.status); e.status = r.status; throw e; }
+    return corpo;
+  }
+
+  function renderEnso(e) {
+    const box = $("enso");
+    if (!e.status) { box.replaceChildren(vazio("Aguardando primeira coleta da NOAA…")); return; }
+    const ultimo = e.oni[e.oni.length - 1] || {};
+    const sem = e.semanal[e.semanal.length - 1] || {};
+    const cor = (ultimo.oni || 0) >= 1.5 ? "red" : (ultimo.oni || 0) >= 0.5 ? "amber" : (ultimo.oni || 0) <= -0.5 ? "cyan" : "green";
+    $("enso-at").textContent = "atualizado há " + atras(e.status.atualizado_em);
+    box.replaceChildren(
+      el("div", { class: "row" }, el("span", { class: "tag red blink" }, "STATUS"), el("b", { class: "red glow" }, (e.status.alerta || "").toUpperCase())),
+      el("div", { class: "row", style: "margin:8px 0;gap:18px;align-items:flex-end" },
+        el("div", {}, el("div", { class: "dim" }, `ONI ${ultimo.trimestre || ""} ${ultimo.ano || ""}`), el("div", { class: "big " + cor + " glow" }, (ultimo.oni > 0 ? "+" : "") + num(ultimo.oni) + "°C")),
+        el("div", {}, el("div", { class: "dim" }, "NIÑO 3.4 SEMANAL"), el("div", { class: "big amber" }, (sem.nino34 > 0 ? "+" : "") + num(sem.nino34, 1))),
+        el("div", {}, el("div", { class: "dim" }, "NIÑO 1+2"), el("div", { class: "big red" }, (sem.nino12 > 0 ? "+" : "") + num(sem.nino12, 1)))),
+      el("div", { class: cor }, (e.status.fase || "").toUpperCase()),
+      spark(e.oni.map((o) => o.oni), "#ffb000", 300, 50, true),
+      el("div", { class: "dim", style: "font-size:11px" }, "ONI — " + e.oni.map((o) => o.trimestre).join(" · ")),
+      el("p", { style: "margin:8px 0 0" }, e.status.sinopse || ""),
+      el("p", { class: "dim", style: "margin:6px 0 0;font-size:11px" }, "BR: chuva acima da média e enchentes no Sul · seca no Norte/Nordeste · calor no Centro-Oeste (MS)."));
+  }
+
+  function renderArbo(lista) {
+    if (!lista.length) { $("arbo").replaceChildren(vazio("Aguardando dados do InfoDengue…")); return; }
+    $("arbo").replaceChildren(el("table", {},
+      el("tr", {}, el("th", {}, "MUNICÍPIO"), el("th", {}, "DOENÇA"), el("th", {}, "NÍVEL"), el("th", { class: "n" }, "SEM."), el("th", { class: "n" }, "ANO"), el("th", { class: "n" }, "RT")),
+      ...lista.map((a) => {
+        const [cor, blocos, nome] = ARBO[a.nivel] || ["dim", "□□□□", "—"];
+        return el("tr", {},
+          el("td", {}, a.municipio), el("td", {}, a.doenca),
+          el("td", { class: cor }, el("span", { class: "blk" }, blocos), " " + nome),
+          el("td", { class: "n" }, a.casos_semana), el("td", { class: "n" }, Number(a.casos_ano).toLocaleString("pt-BR")),
+          el("td", { class: "n " + ((a.rt || 0) > 1 ? "red" : "green") }, a.rt == null ? "—" : ((a.rt > 1 ? "▲ " : "▼ ") + num(a.rt))));
+      })),
+      el("p", { class: "dim", style: "font-size:11px" }, `Semana epidemiológica ${String(lista[0].semana).slice(4)}/${String(lista[0].semana).slice(0, 4)} · Rt > 1 = transmissão em expansão`));
+  }
+
+  function renderClima(clima, avisos) {
+    const blocos = clima.map((c) => el("div", { style: "margin-bottom:10px" },
+      el("div", { class: "row" }, el("b", { class: "green" }, c.cidade.toUpperCase()),
+        el("span", { class: "big cyan", style: "font-size:24px" }, num(c.temperatura, 1) + "°C"),
+        el("span", {}, TEMPO[c.codigo] || ""), el("span", { class: "dim" }, `umid ${num(c.umidade, 0)}% · vento ${num(c.vento, 0)} km/h` + (c.aqi != null ? ` · AQI ${num(c.aqi, 0)}` : ""))),
+      el("table", {}, ...c.previsao.map((p) => el("tr", {},
+        el("td", { class: "dim" }, new Date(p.data + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit" })),
+        el("td", {}, `${num(p.tmin, 0)}–${num(p.tmax, 0)}°`), el("td", { class: p.prob_chuva >= 70 ? "cyan" : "dim" }, `☂ ${num(p.prob_chuva, 0)}%`),
+        el("td", { class: "n" }, num(p.chuva_mm, 1) + "mm"))))));
+    const resumo = avisos.resumo.map(([k, v]) => el("div", { class: k.includes("Grande Perigo") ? "red" : k.includes("(Perigo)") ? "amber" : "dim" }, `${v}× ${k}`));
+    const area = avisos.na_area.map((a) => el("li", {}, el("span", { class: "tag " + (a.severidade === "Perigo Potencial" ? "amber" : "red") }, a.severidade.toUpperCase()),
+      `${a.evento} · ${a.inicio} → ${a.fim}`, el("div", { class: "meta" }, (a.descricao || "").slice(0, 160))));
+    $("clima").replaceChildren(...(blocos.length ? blocos : [vazio("Aguardando previsão…")]),
+      el("div", { class: "green", style: "margin-top:6px" }, `INMET · ${avisos.total} avisos vigentes no país`), ...resumo,
+      el("div", { class: "amber", style: "margin-top:6px" }, `${avisos.na_area.length} aviso(s) para ${avisos.area.toUpperCase()}`),
+      el("ul", { class: "lst" }, ...area));
+  }
+
+  function renderAlimentos(a) {
+    $("ipca-mes").textContent = a.mes || "";
+    if (!a.itens.length) { $("alimentos").replaceChildren(vazio("Aguardando IPCA…")); return; }
+    const locais = [...new Set(a.itens.map((i) => i.localidade))];
+    const porItem = {};
+    for (const i of a.itens) (porItem[i.item] ||= {})[i.localidade] = i;
+    const cab = el("tr", {}, el("th", {}, "ITEM"), ...locais.flatMap((l) => [el("th", { class: "n" }, l.toUpperCase().slice(0, 12) + " MÊS"), el("th", { class: "n" }, "12M")]));
+    const linhas = Object.entries(porItem).map(([item, porLocal]) => el("tr", {}, el("td", {}, item),
+      ...locais.flatMap((l) => [el("td", { class: "n" }, pct(porLocal[l]?.variacao_mes)), el("td", { class: "n" }, pct(porLocal[l]?.variacao_12m))])));
+    const altas = a.itens.filter((i) => i.variacao_mes != null && !i.item.startsWith("Alimentação")).sort((x, y) => y.variacao_mes - x.variacao_mes).slice(0, 3);
+    $("alimentos").replaceChildren(
+      el("div", { class: "red", style: "margin-bottom:6px" }, "MAIORES ALTAS: " + altas.map((i) => `${i.item} ${i.localidade.split(" ")[0]} +${num(i.variacao_mes)}%`).join(" · ")),
+      el("table", {}, cab, ...linhas),
+      el("p", { class: "dim", style: "font-size:11px" }, "Dourados não é pesquisada pelo IBGE — Campo Grande é a referência regional."));
+  }
+
+  function renderPrecos(p) {
+    $("precos-cidade").textContent = p.cidade;
+    if (!p.medias.length) { $("precos").replaceChildren(vazio("Nenhum preço registrado nos últimos 30 dias. Registre abaixo os preços coletados nos mercados.")); return; }
+    $("precos").replaceChildren(el("table", {},
+      el("tr", {}, el("th", {}, "PRODUTO"), el("th", { class: "n" }, "MÉDIA"), el("th", { class: "n" }, "MÍN"), el("th", { class: "n" }, "MÁX"), el("th", { class: "n" }, "MERCADOS")),
+      ...p.medias.map((m) => el("tr", {}, el("td", {}, `${m.produto} (${m.unidade})`), el("td", { class: "n green" }, "R$ " + num(m.media)),
+        el("td", { class: "n cyan" }, num(m.minimo)), el("td", { class: "n amber" }, num(m.maximo)), el("td", { class: "n" }, m.mercados)))));
+  }
+
+  function renderCambio(c) {
+    const get = (b, m) => c.atual.find((x) => x.base === b && x.moeda === m);
+    const usd = get("USD", "BRL"), eur = get("EUR", "BRL");
+    if (!usd) { $("cambio").replaceChildren(vazio("Aguardando cotações…")); return; }
+    $("cambio-data").textContent = usd.data;
+    const serie = c.usd_brl.map((x) => x.valor);
+    const var30 = serie.length > 20 ? (serie[serie.length - 1] / serie[serie.length - 21] - 1) * 100 : null;
+    const outras = ["CNY", "ARS", "GBP"].map((m) => get("USD", m)).filter(Boolean).map((x) => el("span", { class: "dim" }, `USD/${x.moeda} ${num(x.valor, 2)}`));
+    $("cambio").replaceChildren(
+      el("div", { class: "row", style: "gap:18px" },
+        el("div", {}, el("div", { class: "dim" }, "USD/BRL"), el("div", { class: "big green glow" }, num(usd.valor, 4))),
+        eur ? el("div", {}, el("div", { class: "dim" }, "EUR/BRL"), el("div", { class: "big cyan" }, num(eur.valor, 4))) : null,
+        el("div", {}, el("div", { class: "dim" }, "~30 DIAS"), pct(var30))),
+      spark(serie, "#33ff77"), el("div", { class: "row", style: "gap:14px" }, ...outras));
+  }
+
+  function renderSismos(t) {
+    $("sismos").replaceChildren(t.length ? el("table", {}, ...t.map((s) => el("tr", {},
+      el("td", { class: s.magnitude >= 6 ? "red" : "amber" }, "M" + num(s.magnitude, 1)),
+      el("td", {}, el("a", { href: s.link, target: "_blank", rel: "noopener" }, s.local)),
+      el("td", { class: "n dim" }, atras(s.quando)), el("td", {}, s.tsunami ? el("span", { class: "tag red" }, "TSUNAMI") : "")))) : vazio("Sem dados."));
+  }
+
+  function renderColetas(c) {
+    const ordem = ["noticias", "enso", "arboviroses", "alimentos", "cambio", "clima", "avisos_inmet", "terremotos"];
+    $("coletas").replaceChildren(el("table", {}, ...ordem.map((k) => {
+      const r = c[k];
+      return el("tr", {}, el("td", { class: (r ? (r.ok ? "green" : "red") : "dim"), style: "white-space:nowrap" }, r ? (r.ok ? "[OK]" : "[FAIL]") : "[--]"),
+        el("td", {}, k, el("div", { class: "dim", style: "font-size:11px" }, r ? r.mensagem.slice(0, 70) : "pendente")),
+        el("td", { class: "n dim" }, r ? atras(r.quando) : ""));
+    })));
+  }
+
+  function renderFeed() {
+    const abas = [["feed", "FEED"], ["criticos", "CRÍTICOS"], ...dados.temas.map((t) => ["tema-" + t.id, t.nome.toUpperCase()])];
+    $("abas").replaceChildren(...abas.map(([id, rot]) => el("button", { type: "button", class: abaAtual === id ? "on" : "", on: { click: () => { abaAtual = id; renderFeed(); } } }, rot)));
+    let lista = dados.feed;
+    if (abaAtual === "criticos") lista = dados.criticos;
+    else if (abaAtual.startsWith("tema-")) lista = (dados.temas.find((t) => "tema-" + t.id === abaAtual) || { noticias: [] }).noticias;
+    $("filtros").classList.toggle("hidden", abaAtual !== "feed");
+    $("feed-n").textContent = lista.length + " itens";
+    $("feed").replaceChildren(...(lista.length ? lista.map(itemNoticia) : [vazio("Nada encontrado para este filtro.")]));
+  }
+
+  function renderTemas() {
+    $("lista-temas").replaceChildren(...(dados.temas.length ? dados.temas.map((t) => el("span", { class: "tag green", style: "padding:3px 8px" }, t.nome + " ",
+      el("a", { href: "#", title: "remover", on: { click: async (ev) => { ev.preventDefault(); if (!confirm("Remover o tema " + t.nome + "?")) return;
+        await api(`/api/temas/${t.id}`, { method: "DELETE" }); if (abaAtual === "tema-" + t.id) abaAtual = "feed"; carregar(); } } }, "✕")))
+      : [el("span", { class: "dim" }, "Nenhum tema ainda. Crie temas para acompanhar assuntos específicos (ex.: reforma tributária, H5N1, preço do boi).")]));
+  }
+
+  function render() {
+    $("estado").textContent = "ONLINE"; $("led").className = "led";
+    $("n-crit").textContent = dados.contagem.critico || 0;
+    $("n-alto").textContent = dados.contagem.alto || 0;
+    $("n-total").textContent = Object.values(dados.contagem).reduce((a, b) => a + b, 0);
+    $("btn-coletar").classList.toggle("hidden", !dados.admin);
+    $("ticker").replaceChildren(...dados.criticos.slice(0, 25).map((n) => el("a", { href: n.link, target: "_blank", rel: "noopener" }, `${n.titulo} — ${n.fonte_nome}`)));
+    $("crit-n").textContent = dados.criticos.length + " em 7 dias";
+    $("criticos").replaceChildren(...(dados.criticos.length ? dados.criticos.slice(0, 30).map(itemNoticia) : [vazio("Sem alertas críticos.")]));
+    $("surtos-n").textContent = dados.surtos.length + " sinais";
+    $("surtos").replaceChildren(...(dados.surtos.length ? dados.surtos.map(itemNoticia) : [vazio("Nenhum sinal de surto nas fontes.")]));
+    renderEnso(dados.enso); renderArbo(dados.arboviroses); renderClima(dados.clima, dados.avisos);
+    renderAlimentos(dados.alimentos); renderPrecos(dados.precos); renderCambio(dados.cambio);
+    renderSismos(dados.terremotos); renderColetas(dados.coletas); renderFeed(); renderTemas();
+  }
+
+  async function carregar() {
+    restante = 60;
+    const q = new URLSearchParams({ q: $("f-q").value, escopo: $("f-escopo").value, categoria: $("f-cat").value, nivel: $("f-nivel").value });
+    try {
+      dados = await api("/api/painel?" + q.toString());
+      $("aviso").classList.add("hidden"); $("grade").classList.remove("hidden");
+      render();
+    } catch (e) {
+      $("estado").textContent = "OFFLINE"; $("led").className = "led off";
+      if (e.status === 401 || e.status === 402) {
+        $("grade").classList.add("hidden"); $("aviso").classList.remove("hidden");
+        $("aviso").replaceChildren(el("p", {}, e.status === 401 ? "> SESSÃO NÃO ENCONTRADA. Entre pela sua conta." : "> ACESSO RESTRITO A ASSINANTES."),
+          el("a", { href: "/conta", class: "green" }, "[ IR PARA A CONTA ]"));
+      }
+    }
+  }
+
+  // Static form setup
+  for (const [k, v] of Object.entries(CATS)) {
+    $("f-cat").append(el("option", { value: k }, v));
+    $("t-cats").append(el("label", { style: "color:var(--text)" }, el("input", { type: "checkbox", value: k }), " " + v));
+  }
+  $("pr-data").value = new Date().toISOString().slice(0, 10);
+  $("f-aplicar").addEventListener("click", carregar);
+  $("f-q").addEventListener("keydown", (e) => { if (e.key === "Enter") carregar(); });
+  $("btn-atualizar").addEventListener("click", carregar);
+  $("btn-coletar").addEventListener("click", async () => {
+    $("btn-coletar").textContent = "[COLETANDO...]";
+    try { await api("/api/admin/coletar", { method: "POST" }); } catch (_) {}
+    $("btn-coletar").textContent = "[COLETAR AGORA]"; carregar();
+  });
+  $("form-tema").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      const t = await api("/api/temas", { method: "POST", body: {
+        nome: $("t-nome").value, termos: $("t-termos").value, excluir: $("t-excluir").value,
+        escopo: $("t-escopo").value, nivel_minimo: $("t-nivel").value,
+        categorias: [...$("t-cats").querySelectorAll("input:checked")].map((i) => i.value) } });
+      ev.target.reset(); $("t-msg").textContent = ""; abaAtual = "tema-" + t.id; carregar();
+    } catch (e) { $("t-msg").textContent = e.message; }
+  });
+  $("form-preco").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      await api("/api/precos", { method: "POST", body: { produto: $("pr-produto").value, mercado: $("pr-mercado").value,
+        preco: $("pr-preco").value, unidade: $("pr-unidade").value, data: $("pr-data").value, cidade: dados?.precos.cidade } });
+      $("pr-produto").value = ""; $("pr-preco").value = ""; carregar();
+    } catch (e) { alert(e.message); }
+  });
+
+  function relogio() {
+    const d = new Date();
+    $("relogio").textContent = d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    $("utc").textContent = d.toISOString().slice(11, 16);
+    restante -= 1; $("contagem").textContent = Math.max(restante, 0);
+    if (restante <= 0) carregar();
+  }
+  setInterval(relogio, 1000); relogio();
+  carregar();
+})();
+</script>
+</body>
+</html>

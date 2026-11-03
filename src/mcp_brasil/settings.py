@@ -76,6 +76,27 @@ AUTHKIT_DOMAIN: str = os.environ.get("AUTHKIT_DOMAIN", "").strip()
 AUTHKIT_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("AUTHKIT_REQUIRED_SCOPES", ""))
 
 # --- Radar Brasil (MCP_BRASIL_AUTH_MODE=radar) ---
+# Display name of the product (portal, situation room, MCP server name)
+RADAR_NOME: str = os.environ.get("RADAR_NOME", "ARGOS")
+# Public indicators database fed by the collector (read by the situation room and Metabase)
+RADAR_INDICADORES_DB: str = os.environ.get("RADAR_INDICADORES_DB", "data/indicadores.db")
+# Municipalities monitored by the collector ("Nome/UF", comma separated)
+RADAR_CIDADES: list[str] = [
+    c.strip()
+    for c in os.environ.get("RADAR_CIDADES", "Dourados/MS,Campo Grande/MS").split(",")
+    if c.strip()
+]
+# IPCA localities for the food panel (see data/alimentos/constants.py)
+RADAR_ALIMENTOS_LOCALIDADES: list[str] = [
+    c.strip()
+    for c in os.environ.get("RADAR_ALIMENTOS_LOCALIDADES", "brasil,campo_grande").split(",")
+    if c.strip()
+]
+# INMET warnings mentioning this text are highlighted in the situation room
+RADAR_AREA_INMET: str = os.environ.get("RADAR_AREA_INMET", "Mato Grosso do Sul")
+RADAR_COLETA_MINUTOS: int = int(os.environ.get("RADAR_COLETA_MINUTOS", "15"))
+# Run the collector inside the web server process (set 0 when a separate collector runs)
+RADAR_COLETOR_EMBUTIDO: bool = os.environ.get("RADAR_COLETOR_EMBUTIDO", "1") not in ("0", "false")
 RADAR_DB_PATH: str = os.environ.get("RADAR_DB_PATH", "data/radar.db")
 # Signs portal sessions. Generate with:
 #   python -c "import secrets; print(secrets.token_urlsafe(32))"

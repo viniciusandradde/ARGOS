@@ -1,27 +1,43 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="Radar Brasil logo" width="100">
+<img src="docs/assets/logo.png" alt="ARGOS logo" width="100">
 
-# Radar Brasil
+# ARGOS
 
-**Monitoramento ativo do governo brasileiro via MCP — 45 fontes de dados públicas**
+**Os cem olhos sobre o Brasil e o mundo — monitoramento ativo via MCP e sala de situação em tempo real**
 
 _Baseado no projeto open-source [mcp-brasil](https://github.com/jxnxts/mcp-brasil). O pacote Python continua se chamando `mcp_brasil`._
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-389 tools · 45 fontes · 11 áreas temáticas · modo comercial com planos e Mercado Pago
+403 tools · 49 integrações · 48 feeds de notícias (Brasil e mundo) · El Niño (NOAA) · biovigilância · alimentos · sala de situação · Metabase · planos com Mercado Pago
 
 Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil — economia, legislação, transparência, judiciário, eleições, meio ambiente, saúde, segurança pública e mais.
 
 **38 APIs não requerem chave** · 3 usam chaves gratuitas (cadastro em 1 min)
 
-[Quick Start](#quick-start) · [Radar Brasil (modo comercial)](#radar-brasil-modo-comercial) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
+[Quick Start](#quick-start) · [Sala de situação](#sala-de-situação) · [Modo comercial](#radar-brasil-modo-comercial) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
 
 </div>
 
 ---
+
+## Sala de situação
+
+`/painel` é uma tela em tempo real, com visual de terminal, que reúne:
+
+- **El Niño**, pelo alerta oficial da NOAA (ONI e Niño 3.4 semanal);
+- **biovigilância**: dengue, zika e chikungunya por município, mais um radar de surtos e pandemias;
+- **alimentos**: IPCA da cesta e pesquisa própria de preços em Dourados ou outra cidade;
+- **clima**, com avisos do INMET;
+- **câmbio**, **terremotos** e **alertas críticos** do mundo inteiro;
+- **feed de notícias** com temas e filtros configurados por cada usuário.
+
+![Sala de situação do ARGOS](docs/assets/argos-sala-de-situacao.png)
+
+Um coletor grava tudo em `indicadores.db`, e o **Metabase** lê esse banco para os relatórios.
+Veja [docs/deploy/argos-sala-de-situacao.md](docs/deploy/argos-sala-de-situacao.md).
 
 ## Radar Brasil (modo comercial)
 
@@ -159,11 +175,20 @@ Conecte o server e faça perguntas em linguagem natural:
 | `senado` | Senado Federal — senadores, matérias, votações, comissões | 26 |
 | `lexml` | LexML Brasil — leis, decretos, MPs e projetos de todas as esferas | 3 |
 
-### Notícias oficiais
+### Notícias (Brasil e mundo)
 
 | Feature | Fonte | Tools |
 |---------|-------|:-----:|
-| `noticias` | RSS da Agência Brasil, Agência Câmara, Agência Senado, Planalto, Agência Gov, Banco Central, ANS e Receita | 3 |
+| `noticias` | 48 feeds: Agência Brasil, Câmara, Senado, Planalto, BC, INMET, g1, CNN Brasil, OMS, ECDC, ONU, BBC, Guardian, NYT, DW, RFI, Al Jazeera, Fed, BCE, ReliefWeb, USGS — com criticidade | 4 |
+
+### Clima, desastres e saúde global
+
+| Feature | Fonte | Tools |
+|---------|-------|:-----:|
+| `clima` | El Niño/La Niña (NOAA CPC), previsão e qualidade do ar (Open-Meteo), avisos INMET, terremotos (USGS), eventos naturais (NASA EONET) | 6 |
+| `vigilancia` | Dengue, chikungunya e zika por município (InfoDengue) e radar de surtos | 2 |
+| `alimentos` | Inflação dos alimentos da cesta — IPCA/IBGE, Brasil e 16 capitais | 2 |
+| `mundo` | Câmbio (BCE/Frankfurter) e indicadores do Banco Mundial | 3 |
 
 ### Transparência e Fiscalização
 
@@ -286,6 +311,7 @@ META_ACCESS_TOKEN=seu-token
 | [Adicionando Features](docs/guide/adding-features.md) | Guia para contribuir com novas APIs |
 | [Configuração](docs/reference/configuration.md) | Variáveis de ambiente e opções |
 | [Radar Brasil](docs/deploy/radar-brasil.md) | Vender acesso: planos, chaves por cliente, Mercado Pago |
+| [Sala de situação e Metabase](docs/deploy/argos-sala-de-situacao.md) | Painel em tempo real, coletor, temas, preços, relatórios |
 | [Meta Ad Library API](docs/reference/meta-ad-library-api.md) | Referência da API de anúncios eleitorais da Meta |
 | [Code Mode](docs/reference/code-mode.md) | Discovery programático + sandbox Python (experimental) |
 | [Desenvolvimento](docs/guide/development.md) | Setup de dev, testes, lint, CI |
@@ -327,7 +353,7 @@ src/mcp_brasil/
 │   └── ...
 ├── agentes/               # Features de agentes inteligentes
 │   └── redator/
-└── radar/                 # Radar Brasil: usuários, planos, Mercado Pago, portal
+└── radar/                 # ARGOS: usuários, planos, Mercado Pago, portal, painel, coletor
 ```
 
 Para adicionar uma nova feature, basta criar o diretório seguindo a convenção — o registry descobre automaticamente.

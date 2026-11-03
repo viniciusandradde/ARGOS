@@ -49,6 +49,9 @@ class RadarConfig:
     sessao_horas: int = 72
     teste_dias: int = 0
     plano_teste: str = "essencial"
+    nome: str = "ARGOS"
+    area_inmet: str = "Mato Grosso do Sul"
+    cidade_precos: str = "Dourados/MS"
 
 
 def referencia(usuario_id: int, plano_id: str, modo: str) -> str:

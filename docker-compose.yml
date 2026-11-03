@@ -1,3 +1,11 @@
+# ARGOS — stack simples: aplicação web + coletor + Metabase (relatórios)
+#
+#   docker compose up -d --build
+#   Portal/painel:  http://localhost:8061/conta  e  /painel
+#   Metabase:       http://localhost:3000   (banco: SQLite em /indicadores/indicadores.db)
+#
+# Volumes separados de propósito: o Metabase só enxerga o banco público de
+# indicadores, nunca o banco de usuários, chaves e pagamentos.
 services:
   mcp-brasil:
     build: .
@@ -6,8 +14,12 @@ services:
     env_file: .env
     environment:
       RADAR_DB_PATH: /app/data/radar.db
+      RADAR_INDICADORES_DB: /indicadores/indicadores.db
+      RADAR_COLETOR_EMBUTIDO: "0"   # a coleta roda no serviço "coletor"
     volumes:
       - radar-data:/app/data
+      - indicadores:/indicadores
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8061/health')"]
       interval: 30s
@@ -15,5 +27,28 @@ services:
       retries: 3
       start_period: 10s
 
+  coletor:
+    build: .
+    command: ["uv", "run", "python", "-m", "mcp_brasil.radar", "coletar", "--loop"]
+    env_file: .env
+    environment:
+      RADAR_INDICADORES_DB: /indicadores/indicadores.db
+    volumes:
+      - indicadores:/indicadores
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest   # fixe uma versão (ex: v0.5x.y) em produção
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+      - indicadores:/indicadores
+    restart: unless-stopped
+
 volumes:
   radar-data:
+  indicadores:
+  metabase-data:

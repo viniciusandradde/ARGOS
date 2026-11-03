@@ -6,12 +6,15 @@ Uso:
     python -m mcp_brasil.radar usuarios
     python -m mcp_brasil.radar criar-chave --email voce@exemplo.com --nome "Claude Desktop"
     python -m mcp_brasil.radar redefinir-senha --email cliente@exemplo.com
+    python -m mcp_brasil.radar coletar [--loop] [--etapas noticias,enso]
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import getpass
+import logging
 import sys
 
 from . import get_servico, seguranca
@@ -42,7 +45,15 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("usuarios", help="Lista usuários e situação do acesso")
 
+    p_coletar = sub.add_parser("coletar", help="Coleta indicadores para o painel e o Metabase")
+    p_coletar.add_argument(
+        "--loop", action="store_true", help="Repete a cada RADAR_COLETA_MINUTOS"
+    )
+    p_coletar.add_argument("--etapas", default="", help="Ex: noticias,enso (padrão: todas)")
+
     args = parser.parse_args(argv)
+    if args.comando == "coletar":
+        return _coletar(args.loop, [e for e in args.etapas.split(",") if e])
     servico = get_servico()
 
     try:
@@ -78,6 +89,26 @@ def main(argv: list[str] | None = None) -> int:
     except ErroRadar as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 1
+    return 0
+
+
+def _coletar(loop: bool, etapas: list[str]) -> int:
+    from mcp_brasil import settings
+
+    from . import config_coleta_from_settings, get_indicadores
+    from .coletor import ETAPAS, coletar_tudo, loop_coleta
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    invalidas = [e for e in etapas if e not in ETAPAS]
+    if invalidas:
+        print(f"Etapas inválidas: {invalidas}. Opções: {', '.join(ETAPAS)}", file=sys.stderr)
+        return 1
+    ind, cfg = get_indicadores(), config_coleta_from_settings()
+    if loop:
+        asyncio.run(loop_coleta(ind, cfg, settings.RADAR_COLETA_MINUTOS))
+        return 0
+    for etapa, resultado in asyncio.run(coletar_tudo(ind, cfg, etapas or None)).items():
+        print(f"{etapa:<14} {resultado}")
     return 0
 
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Radar Brasil</title>
+<title>{{NOME}}</title>
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --text: #16202c; --muted: #5b6776; --line: #dde2e8;
@@ -67,18 +67,20 @@
 </head>
 <body>
 <header><div class="wrap bar">
-  <div class="logo">Radar <span>Brasil</span></div>
-  <div class="row"><span id="quem" class="muted"></span>
+  <div class="logo">{{NOME}} <span>·</span></div>
+  <div class="row"><a id="link-painel" class="btn hidden" href="/painel" style="text-decoration:none">Sala de situação</a>
+    <span id="quem" class="muted"></span>
     <button id="sair" class="sec hidden" type="button">Sair</button></div>
 </div></header>
 
 <main class="wrap">
   <!-- Público -->
   <div id="publico">
-    <h1>Monitoramento ativo do governo brasileiro, direto no seu assistente de IA.</h1>
+    <h1>Os cem olhos sobre o Brasil e o mundo — em tempo real, no seu painel e no seu assistente de IA.</h1>
     <p class="lead">Leis, Diário Oficial, Câmara e Senado, gastos públicos, contas fiscais de estados
       e municípios, saúde (SUS, ANVISA, vacinação, epidemiologia), economia e notícias oficiais —
-      mais de 45 fontes públicas em um único servidor MCP.</p>
+      49 integrações de dados e 48 fontes de notícias do Brasil e do mundo: El Niño (NOAA), surtos e epidemias,
+      dengue, zika e chikungunya, preços dos alimentos, câmbio, clima e desastres.</p>
     <div id="planos" class="grid"></div>
 
     <section class="card" style="max-width:440px">
@@ -106,7 +108,7 @@
         <div class="row"><button id="cancelar" class="danger hidden" type="button">Cancelar assinatura</button></div>
       </div>
       <div class="card">
-        <h2>Conectar ao Radar</h2>
+        <h2>Conectar ao {{NOME}}</h2>
         <p class="muted">Endereço MCP (HTTP):</p>
         <pre id="mcp-url"></pre>
         <p class="muted">Envie sua chave no cabeçalho <code>Authorization: Bearer rb_...</code></p>
@@ -146,7 +148,7 @@
     </section>
   </div>
 </main>
-<footer class="wrap">Radar Brasil · dados de APIs públicas oficiais do governo brasileiro.</footer>
+<footer class="wrap">{{NOME}} · dados de APIs públicas oficiais do Brasil e do mundo.</footer>
 
 <script>
 (() => {
@@ -211,12 +213,14 @@
     sessao = null; try { localStorage.removeItem("radar_sessao"); } catch (_) {}
     $("painel").classList.add("hidden"); $("publico").classList.remove("hidden");
     $("sair").classList.add("hidden"); $("quem").textContent = "";
+    $("link-painel").classList.add("hidden");
   }
 
   async function carregarPainel() {
     const r = await api("/api/eu");
     $("publico").classList.add("hidden"); $("painel").classList.remove("hidden");
     $("sair").classList.remove("hidden"); $("quem").textContent = r.usuario.email;
+    $("link-painel").classList.toggle("hidden", !r.acesso_ativo);
 
     const st = $("status-acesso");
     st.textContent = r.acesso_ativo ? "Acesso ativo" : "Sem acesso — escolha um plano";
