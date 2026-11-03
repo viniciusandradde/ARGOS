@@ -30,6 +30,7 @@ class Filtro:
     escopo: str = "todos"  # brasil | mundo | todos
     idioma: str = "todos"  # pt | en | todos
     nivel_minimo: str = "normal"
+    apenas_titulo: bool = False  # match ``termos`` only in the headline (fewer false positives)
 
     def fontes_alvo(self) -> list[str]:
         """Feeds that need to be downloaded to satisfy this filter."""
@@ -47,7 +48,8 @@ class Filtro:
         if peso(n.nivel) < peso(self.nivel_minimo):
             return False
         texto = normalizar(f"{n.titulo} {n.resumo}")
-        if self.termos and not any(normalizar(t) in texto for t in self.termos if t.strip()):
+        alvo = normalizar(n.titulo) if self.apenas_titulo else texto
+        if self.termos and not any(normalizar(t) in alvo for t in self.termos if t.strip()):
             return False
         return not any(normalizar(t) in texto for t in self.excluir if t.strip())
 

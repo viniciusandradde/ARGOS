@@ -27,13 +27,15 @@ services:
       retries: 3
       start_period: 10s
 
-  coletor:
+  coletor:   # coleta indicadores e envia os alertas de WhatsApp/Telegram
     build: .
     command: ["uv", "run", "python", "-m", "mcp_brasil.radar", "coletar", "--loop"]
     env_file: .env
     environment:
+      RADAR_DB_PATH: /app/data/radar.db
       RADAR_INDICADORES_DB: /indicadores/indicadores.db
     volumes:
+      - radar-data:/app/data
       - indicadores:/indicadores
     restart: unless-stopped
 

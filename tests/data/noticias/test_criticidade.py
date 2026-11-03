@@ -44,3 +44,9 @@ def test_filtro_fontes_alvo() -> None:
     assert Filtro(fontes=["oms", "xyz"]).fontes_alvo() == ["oms"]
     alvo = Filtro(categorias=["epidemias"], escopo="mundo").fontes_alvo()
     assert alvo == ["ecdc"]
+
+
+def test_filtro_apenas_titulo() -> None:
+    n = Noticia(fonte="oms", titulo="Editorial on leadership", link="x", resumo="pandemic risk")
+    assert Filtro(termos=["pandemic"]).aceita(n)
+    assert not Filtro(termos=["pandemic"], apenas_titulo=True).aceita(n)

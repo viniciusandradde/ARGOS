@@ -7,7 +7,7 @@ import json
 import logging
 import pathlib
 from collections.abc import Awaitable, Callable
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastmcp import FastMCP
@@ -17,9 +17,11 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 from mcp_brasil.data.noticias.filtros import Filtro
 
 from . import painel as painel_dados
+from .alertas import TIPOS, TIPOS_PADRAO, Alertas, gerar_codigo
 from .coletor import ConfigColeta, coletar_tudo, loop_coleta
 from .indicadores import Indicadores
 from .mercadopago import MercadoPagoError, validar_assinatura_webhook
+from .notificadores import NotificacaoError, normalizar_whatsapp
 from .servico import ErroRadar, RadarService
 from .store import Usuario
 
@@ -58,6 +60,8 @@ def registrar_rotas(
     indicadores: Indicadores | None = None,
     coleta: ConfigColeta | None = None,
     coletor_embutido_minutos: int = 0,
+    alertas: Alertas | None = None,
+    telegram_bot: str = "",
 ) -> None:
     ind = indicadores or Indicadores(":memory:")
     cfg_coleta = coleta or ConfigColeta()
@@ -69,8 +73,9 @@ def registrar_rotas(
             return
         tarefa = tarefas.get("loop")
         if tarefa is None or tarefa.done():
+            depois = alertas.despachar if alertas and alertas.configurado else None
             tarefas["loop"] = asyncio.create_task(
-                loop_coleta(ind, cfg_coleta, coletor_embutido_minutos)
+                loop_coleta(ind, cfg_coleta, coletor_embutido_minutos, depois)
             )
 
     def tratar(handler: Handler) -> Handler:
@@ -82,6 +87,11 @@ def registrar_rotas(
             except MercadoPagoError as exc:
                 logger.error("Mercado Pago: %s", exc)
                 return _erro("Falha ao falar com o Mercado Pago. Tente novamente.", 502)
+            except NotificacaoError as exc:
+                logger.error("Notificação: %s", exc)
+                return _erro(
+                    "Falha ao enviar a mensagem. Verifique o número e tente de novo.", 502
+                )
 
         return wrapper
 
@@ -237,7 +247,7 @@ def registrar_rotas(
     def assinante(handler: Callable[[Request, Usuario], Awaitable[Response]]) -> Handler:
         async def wrapper(request: Request, usuario: Usuario) -> Response:
             if not servico.acesso_ativo(usuario):
-                return _erro("A sala de situação é exclusiva para assinantes.", 402)
+                return _erro("Recurso exclusivo para assinantes.", 402)
             return await handler(request, usuario)
 
         return logado(wrapper)
@@ -333,6 +343,138 @@ def registrar_rotas(
         return JSONResponse({"ok": True}) if ok else _erro("Registro não encontrado.", 404)
 
     rota("/api/precos/{preco_id:int}", ["DELETE"], logado(remover_preco))
+
+    # --- Alertas por Telegram e WhatsApp --------------------------------------
+
+    bot = {"nome": telegram_bot}
+
+    def exige_alertas() -> Alertas:
+        if alertas is None or not alertas.configurado:
+            raise ErroRadar("Alertas ainda não configurados neste servidor.", 503)
+        return alertas
+
+    def resumo_alertas(usuario: Usuario) -> dict[str, Any]:
+        prefs = servico.store.preferencias_alerta(usuario.id)
+        numero = prefs.get("whatsapp_numero") or ""
+        return {
+            "telegram": {
+                "disponivel": bool(alertas and alertas.telegram.configurado),
+                "conectado": bool(prefs.get("telegram_chat_id")),
+            },
+            "whatsapp": {
+                "disponivel": bool(alertas and alertas.whatsapp.configurado),
+                "numero": f"+{numero[:4]}•••••{numero[-4:]}" if numero else "",
+                "verificado": bool(prefs.get("whatsapp_verificado")),
+                "aguardando_codigo": bool(prefs.get("whatsapp_codigo")),
+            },
+            "tipos": [
+                {"id": k, "descricao": v, "ativo": {**TIPOS_PADRAO, **prefs["tipos"]}[k]}
+                for k, v in TIPOS.items()
+            ],
+        }
+
+    async def alertas_get(request: Request, usuario: Usuario) -> Response:
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas", ["GET"], logado(alertas_get))
+
+    async def alertas_put(request: Request, usuario: Usuario) -> Response:
+        dados = await _corpo(request)
+        tipos = dados.get("tipos") if isinstance(dados.get("tipos"), dict) else {}
+        servico.store.salvar_preferencias(
+            usuario.id, tipos={k: bool(v) for k, v in (tipos or {}).items() if k in TIPOS}
+        )
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas", ["PUT"], assinante(alertas_put))
+
+    async def telegram_link(request: Request, usuario: Usuario) -> Response:
+        al = exige_alertas()
+        if not al.telegram.configurado:
+            raise ErroRadar("Telegram não configurado neste servidor.", 503)
+        if not bot["nome"]:
+            bot["nome"] = await al.telegram.nome_usuario()
+        codigo = gerar_codigo()
+        servico.store.salvar_preferencias(usuario.id, telegram_codigo=codigo)
+        return JSONResponse({"link": f"https://t.me/{bot['nome']}?start={codigo}"})
+
+    rota("/api/alertas/telegram", ["POST"], assinante(telegram_link))
+
+    async def telegram_verificar(request: Request, usuario: Usuario) -> Response:
+        await exige_alertas().processar_telegram()
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas/telegram/verificar", ["POST"], assinante(telegram_verificar))
+
+    async def telegram_remover(request: Request, usuario: Usuario) -> Response:
+        servico.store.salvar_preferencias(usuario.id, telegram_chat_id=None, telegram_codigo=None)
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas/telegram", ["DELETE"], logado(telegram_remover))
+
+    async def whatsapp_iniciar(request: Request, usuario: Usuario) -> Response:
+        al = exige_alertas()
+        if not al.whatsapp.configurado:
+            raise ErroRadar("WhatsApp não configurado neste servidor.", 503)
+        numero = normalizar_whatsapp(str((await _corpo(request)).get("numero", "")))
+        if numero is None:
+            raise ErroRadar("Número inválido. Use DDD + número, ex: 67 99999-9999.")
+        chave = f"wa_codigo_ts:{usuario.id}"
+        ultimo = float(servico.store.estado(chave) or 0)
+        if datetime.now().timestamp() - ultimo < 60:
+            raise ErroRadar("Aguarde um minuto antes de pedir outro código.", 429)
+        servico.store.salvar_estado(chave, str(datetime.now().timestamp()))
+        await al.iniciar_whatsapp(usuario, numero)
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas/whatsapp", ["POST"], assinante(whatsapp_iniciar))
+
+    async def whatsapp_confirmar(request: Request, usuario: Usuario) -> Response:
+        prefs = servico.store.preferencias_alerta(usuario.id)
+        codigo = str((await _corpo(request)).get("codigo", "")).strip()
+        tentativas = int(servico.store.estado(f"wa_tentativas:{usuario.id}") or 0)
+        if not prefs.get("whatsapp_codigo") or tentativas >= 5:
+            servico.store.salvar_preferencias(usuario.id, whatsapp_codigo=None)
+            servico.store.salvar_estado(f"wa_tentativas:{usuario.id}", "0")
+            raise ErroRadar("Código expirado. Peça um novo.")
+        if codigo != prefs["whatsapp_codigo"]:
+            servico.store.salvar_estado(f"wa_tentativas:{usuario.id}", str(tentativas + 1))
+            raise ErroRadar("Código incorreto.")
+        servico.store.salvar_estado(f"wa_tentativas:{usuario.id}", "0")
+        servico.store.salvar_preferencias(
+            usuario.id,
+            whatsapp_verificado=True,
+            whatsapp_codigo=None,
+            ativo_desde=datetime.now(timezone.utc).isoformat(),
+        )
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas/whatsapp/confirmar", ["POST"], assinante(whatsapp_confirmar))
+
+    async def whatsapp_remover(request: Request, usuario: Usuario) -> Response:
+        servico.store.salvar_preferencias(
+            usuario.id, whatsapp_numero=None, whatsapp_verificado=False, whatsapp_codigo=None
+        )
+        return JSONResponse(resumo_alertas(usuario))
+
+    rota("/api/alertas/whatsapp", ["DELETE"], logado(whatsapp_remover))
+
+    async def alertas_teste(request: Request, usuario: Usuario) -> Response:
+        al = exige_alertas()
+        from .alertas import Evento
+
+        evento = Evento(
+            chave="teste",
+            titulo="Teste de alerta — tudo funcionando",
+            detalhe="Você receberá aqui os alertas configurados no portal.",
+            nivel="normal",
+        )
+        canais = await al.enviar(servico.store.preferencias_alerta(usuario.id), [evento])
+        if not canais:
+            raise ErroRadar("Nenhum canal conectado (ou o envio falhou).")
+        return JSONResponse({"enviado_para": canais})
+
+    rota("/api/alertas/teste", ["POST"], assinante(alertas_teste))
 
     # --- Administração ------------------------------------------------------
 

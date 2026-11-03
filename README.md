@@ -32,7 +32,8 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 - **alimentos**: IPCA da cesta e pesquisa própria de preços em Dourados ou outra cidade;
 - **clima**, com avisos do INMET;
 - **câmbio**, **terremotos** e **alertas críticos** do mundo inteiro;
-- **feed de notícias** com temas e filtros configurados por cada usuário.
+- **feed de notícias** com temas e filtros configurados por cada usuário;
+- **alertas no WhatsApp e no Telegram**, com um resumo por rodada e só quando há novidade ([guia](docs/deploy/alertas-whatsapp-telegram.md)).
 
 ![Sala de situação do ARGOS](docs/assets/argos-sala-de-situacao.png)
 
@@ -312,6 +313,7 @@ META_ACCESS_TOKEN=seu-token
 | [Configuração](docs/reference/configuration.md) | Variáveis de ambiente e opções |
 | [Radar Brasil](docs/deploy/radar-brasil.md) | Vender acesso: planos, chaves por cliente, Mercado Pago |
 | [Sala de situação e Metabase](docs/deploy/argos-sala-de-situacao.md) | Painel em tempo real, coletor, temas, preços, relatórios |
+| [Alertas WhatsApp e Telegram](docs/deploy/alertas-whatsapp-telegram.md) | Configurar o bot do Telegram e a API oficial do WhatsApp |
 | [Meta Ad Library API](docs/reference/meta-ad-library-api.md) | Referência da API de anúncios eleitorais da Meta |
 | [Code Mode](docs/reference/code-mode.md) | Discovery programático + sandbox Python (experimental) |
 | [Desenvolvimento](docs/guide/development.md) | Setup de dev, testes, lint, CI |

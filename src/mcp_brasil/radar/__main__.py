@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
 def _coletar(loop: bool, etapas: list[str]) -> int:
     from mcp_brasil import settings
 
-    from . import config_coleta_from_settings, get_indicadores
+    from . import config_coleta_from_settings, get_alertas, get_indicadores
     from .coletor import ETAPAS, coletar_tudo, loop_coleta
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -104,11 +104,15 @@ def _coletar(loop: bool, etapas: list[str]) -> int:
         print(f"Etapas inválidas: {invalidas}. Opções: {', '.join(ETAPAS)}", file=sys.stderr)
         return 1
     ind, cfg = get_indicadores(), config_coleta_from_settings()
+    alertas = get_alertas()
+    depois = alertas.despachar if alertas.configurado else None
     if loop:
-        asyncio.run(loop_coleta(ind, cfg, settings.RADAR_COLETA_MINUTOS))
+        asyncio.run(loop_coleta(ind, cfg, settings.RADAR_COLETA_MINUTOS, depois))
         return 0
     for etapa, resultado in asyncio.run(coletar_tudo(ind, cfg, etapas or None)).items():
         print(f"{etapa:<14} {resultado}")
+    if depois is not None:
+        print(f"{'alertas':<14} {asyncio.run(alertas.despachar())}")
     return 0
 
 

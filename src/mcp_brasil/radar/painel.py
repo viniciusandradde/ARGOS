@@ -39,6 +39,7 @@ def validar_tema(dados: dict[str, Any]) -> dict[str, Any]:
         "nivel_minimo": (
             dados.get("nivel_minimo") if dados.get("nivel_minimo") in NIVEIS else "normal"
         ),
+        "alertar": bool(dados.get("alertar")),
     }
     if not config["termos"] and not config["categorias"]:
         raise ValueError("Informe ao menos um termo ou uma categoria.")

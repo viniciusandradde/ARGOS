@@ -110,6 +110,19 @@ RADAR_SESSAO_HORAS: int = int(os.environ.get("RADAR_SESSAO_HORAS", "72"))
 RADAR_TESTE_DIAS: int = int(os.environ.get("RADAR_TESTE_DIAS", "0"))
 RADAR_PLANO_TESTE: str = os.environ.get("RADAR_PLANO_TESTE", "essencial")
 
+# Alerts — Telegram (free, create the bot with @BotFather)
+TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_USERNAME: str = os.environ.get("TELEGRAM_BOT_USERNAME", "").lstrip("@")
+# Alerts — WhatsApp Cloud API (Meta, official). Proactive messages need an approved template
+# whose body has two text parameters: {{1}} title and {{2}} details.
+WHATSAPP_TOKEN: str = os.environ.get("WHATSAPP_TOKEN", "")
+WHATSAPP_PHONE_NUMBER_ID: str = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
+WHATSAPP_TEMPLATE: str = os.environ.get("WHATSAPP_TEMPLATE", "alerta_argos")
+WHATSAPP_TEMPLATE_IDIOMA: str = os.environ.get("WHATSAPP_TEMPLATE_IDIOMA", "pt_BR")
+WHATSAPP_API_VERSAO: str = os.environ.get("WHATSAPP_API_VERSAO", "v21.0")
+# Max items listed in each alert digest message
+RADAR_ALERTAS_MAX_ITENS: int = int(os.environ.get("RADAR_ALERTAS_MAX_ITENS", "8"))
+
 # Mercado Pago — https://www.mercadopago.com.br/developers/panel/app
 MERCADOPAGO_ACCESS_TOKEN: str = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
 MERCADOPAGO_WEBHOOK_SECRET: str = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "")

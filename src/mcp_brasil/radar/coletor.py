@@ -267,8 +267,19 @@ async def coletar_tudo(
     return dict(zip(nomes, resultados, strict=True))
 
 
-async def loop_coleta(ind: Indicadores, cfg: ConfigColeta, minutos: int) -> None:
+async def loop_coleta(
+    ind: Indicadores,
+    cfg: ConfigColeta,
+    minutos: int,
+    depois: Callable[[], Awaitable[object]] | None = None,
+) -> None:
+    """Collect forever; ``depois`` runs after each round (e.g. alert dispatch)."""
     while True:
         resultados = await coletar_tudo(ind, cfg)
         logger.info("Coleta concluída: %s", resultados)
+        if depois is not None:
+            try:
+                logger.info("Alertas: %s", await depois())
+            except Exception as exc:  # alerts must never stop the collector
+                logger.warning("Envio de alertas falhou: %s", exc)
         await asyncio.sleep(max(minutos, 1) * 60)

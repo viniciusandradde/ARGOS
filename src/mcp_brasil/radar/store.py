@@ -61,6 +61,27 @@ CREATE TABLE IF NOT EXISTS temas (
     config TEXT NOT NULL,
     criado_em TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS preferencias_alerta (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id),
+    telegram_chat_id TEXT,
+    telegram_codigo TEXT,
+    whatsapp_numero TEXT,
+    whatsapp_verificado INTEGER NOT NULL DEFAULT 0,
+    whatsapp_codigo TEXT,
+    tipos TEXT NOT NULL DEFAULT '{}',
+    ativo_desde TEXT,
+    atualizado_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS alertas_enviados (
+    usuario_id INTEGER NOT NULL,
+    chave TEXT NOT NULL,
+    enviado_em TEXT NOT NULL,
+    PRIMARY KEY (usuario_id, chave)
+);
+CREATE TABLE IF NOT EXISTS estado (
+    chave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS uso (
     usuario_id INTEGER NOT NULL,
     dia TEXT NOT NULL,
@@ -377,6 +398,95 @@ class Store:
             "DELETE FROM temas WHERE id = ? AND usuario_id = ?", (tema_id, usuario_id)
         )
         return cur.rowcount > 0
+
+    # --- Alertas (Telegram / WhatsApp) -----------------------------------
+
+    _CAMPOS_PREFS = (
+        "telegram_chat_id",
+        "telegram_codigo",
+        "whatsapp_numero",
+        "whatsapp_verificado",
+        "whatsapp_codigo",
+        "tipos",
+        "ativo_desde",
+    )
+
+    @staticmethod
+    def _prefs(row: sqlite3.Row | None, usuario_id: int) -> dict[str, Any]:
+        if row is None:
+            return {"usuario_id": usuario_id, "tipos": {}, "whatsapp_verificado": False}
+        dados = dict(row)
+        dados["tipos"] = json.loads(dados.get("tipos") or "{}")
+        dados["whatsapp_verificado"] = bool(dados.get("whatsapp_verificado"))
+        return dados
+
+    def preferencias_alerta(self, usuario_id: int) -> dict[str, Any]:
+        row = self._one("SELECT * FROM preferencias_alerta WHERE usuario_id = ?", (usuario_id,))
+        return self._prefs(row, usuario_id)
+
+    def salvar_preferencias(self, usuario_id: int, **campos: Any) -> None:
+        invalidos = set(campos) - set(self._CAMPOS_PREFS)
+        if invalidos:
+            raise ValueError(f"Campos inválidos: {invalidos}")
+        if "tipos" in campos:
+            campos["tipos"] = json.dumps(campos["tipos"])
+        if "whatsapp_verificado" in campos:
+            campos["whatsapp_verificado"] = int(bool(campos["whatsapp_verificado"]))
+        self._exec(
+            "INSERT OR IGNORE INTO preferencias_alerta (usuario_id, atualizado_em) VALUES (?, ?)",
+            (usuario_id, _iso(agora())),
+        )
+        if campos:
+            sets = ", ".join(f"{k} = ?" for k in campos)
+            self._exec(
+                f"UPDATE preferencias_alerta SET {sets}, atualizado_em = ? WHERE usuario_id = ?",
+                (*campos.values(), _iso(agora()), usuario_id),
+            )
+
+    def listar_preferencias_alerta(self) -> list[dict[str, Any]]:
+        rows = self._all("SELECT * FROM preferencias_alerta")
+        return [self._prefs(r, int(r["usuario_id"])) for r in rows]
+
+    def vincular_telegram(self, codigo: str, chat_id: str) -> int | None:
+        row = self._one(
+            "SELECT usuario_id FROM preferencias_alerta WHERE telegram_codigo = ?", (codigo,)
+        )
+        if row is None:
+            return None
+        usuario_id = int(row["usuario_id"])
+        self.salvar_preferencias(
+            usuario_id, telegram_chat_id=chat_id, telegram_codigo=None, ativo_desde=_iso(agora())
+        )
+        return usuario_id
+
+    def alerta_enviado(self, usuario_id: int, chave: str) -> bool:
+        row = self._one(
+            "SELECT 1 FROM alertas_enviados WHERE usuario_id = ? AND chave = ?",
+            (usuario_id, chave),
+        )
+        return row is not None
+
+    def marcar_alertas(self, usuario_id: int, chaves: list[str]) -> None:
+        ts = _iso(agora())
+        with self._lock, self._conn:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO alertas_enviados (usuario_id, chave, enviado_em) "
+                "VALUES (?, ?, ?)",
+                [(usuario_id, c, ts) for c in chaves],
+            )
+            limite = _iso(agora() - timedelta(days=60))
+            self._conn.execute("DELETE FROM alertas_enviados WHERE enviado_em < ?", (limite,))
+
+    def estado(self, chave: str) -> str | None:
+        row = self._one("SELECT valor FROM estado WHERE chave = ?", (chave,))
+        return str(row["valor"]) if row else None
+
+    def salvar_estado(self, chave: str, valor: str) -> None:
+        self._exec(
+            "INSERT INTO estado (chave, valor) VALUES (?, ?) "
+            "ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+            (chave, valor),
+        )
 
     # --- Uso diário -------------------------------------------------------
 

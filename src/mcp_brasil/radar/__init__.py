@@ -21,6 +21,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from .alertas import Alertas
 from .coletor import ConfigColeta
 from .indicadores import Indicadores
 from .planos import carregar_planos
@@ -71,6 +72,27 @@ def config_coleta_from_settings() -> ConfigColeta:
 
 
 @lru_cache(maxsize=1)
+def get_alertas() -> Alertas:
+    from mcp_brasil import settings
+
+    from .notificadores import TelegramClient, WhatsAppClient
+
+    return Alertas(
+        get_servico(),
+        get_indicadores(),
+        TelegramClient(settings.TELEGRAM_BOT_TOKEN),
+        WhatsAppClient(
+            settings.WHATSAPP_TOKEN,
+            settings.WHATSAPP_PHONE_NUMBER_ID,
+            template=settings.WHATSAPP_TEMPLATE,
+            idioma=settings.WHATSAPP_TEMPLATE_IDIOMA,
+            versao=settings.WHATSAPP_API_VERSAO,
+        ),
+        max_itens=settings.RADAR_ALERTAS_MAX_ITENS,
+    )
+
+
+@lru_cache(maxsize=1)
 def get_indicadores() -> Indicadores:
     from mcp_brasil import settings
 
@@ -95,6 +117,7 @@ def install(
     mcp: FastMCP[Any],
     servico: RadarService | None = None,
     indicadores: Indicadores | None = None,
+    alertas: Alertas | None = None,
 ) -> RadarService:
     """Register the portal, situation room, billing routes and the quota middleware."""
     from mcp_brasil import settings
@@ -109,6 +132,8 @@ def install(
         indicadores if indicadores is not None else get_indicadores(),
         config_coleta_from_settings(),
         settings.RADAR_COLETA_MINUTOS if settings.RADAR_COLETOR_EMBUTIDO else 0,
+        alertas if alertas is not None else get_alertas(),
+        settings.TELEGRAM_BOT_USERNAME,
     )
     mcp.add_middleware(QuotaMiddleware(servico))
     logger.info(

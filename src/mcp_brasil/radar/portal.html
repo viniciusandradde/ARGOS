@@ -122,6 +122,27 @@
       <div id="planos-painel" class="grid"></div>
     </section>
 
+    <section id="sec-alertas" class="card hidden">
+      <h2>Alertas no WhatsApp e no Telegram</h2>
+      <p class="muted">Receba um resumo a cada coleta (15 min) só quando houver novidade nos assuntos escolhidos.</p>
+      <div id="msg-alertas" class="msg"></div>
+      <div class="grid">
+        <div>
+          <h3 style="margin:0 0 6px;font-size:16px">Telegram <span id="tg-status" class="pill"></span></h3>
+          <div class="row" id="tg-acoes"></div>
+          <p id="tg-dica" class="muted hidden">Abra o link, toque em <b>Iniciar</b> no Telegram e depois clique em <b>Já enviei</b>.</p>
+        </div>
+        <div>
+          <h3 style="margin:0 0 6px;font-size:16px">WhatsApp <span id="wa-status" class="pill"></span></h3>
+          <div id="wa-acoes"></div>
+        </div>
+      </div>
+      <h3 style="margin:16px 0 6px;font-size:16px">O que você quer receber</h3>
+      <div id="alerta-tipos"></div>
+      <div class="row" style="margin-top:10px"><button id="alerta-teste" type="button" class="sec">Enviar alerta de teste</button></div>
+      <p class="muted">Dica: na sala de situação, marque “alertar” nos temas que devem chegar no celular.</p>
+    </section>
+
     <section class="card">
       <h2>Chaves de API</h2>
       <div class="row"><input id="nome-chave" placeholder="Nome (ex: Claude Desktop)" style="max-width:320px;margin:0">
@@ -252,6 +273,7 @@
       : [el("tr", {}, el("td", { colspan: "4", class: "muted" }, "Nenhum pagamento."))]));
 
     if (r.usuario.papel === "admin") { $("admin").classList.remove("hidden"); carregarAdmin(); }
+    if (r.acesso_ativo) carregarAlertas().catch((e) => msg("msg-alertas", e.message));
     const retorno = new URLSearchParams(location.search).get("retorno");
     if (retorno) msg("msg-painel", "Recebemos seu retorno do Mercado Pago. A confirmação do pagamento pode levar alguns minutos.", "ok");
   }
@@ -316,6 +338,54 @@
     if (!confirm("Cancelar a renovação automática? Você mantém o acesso até o fim do período pago.")) return;
     try { await api("/api/cobranca/cancelar", { method: "POST" }); msg("msg-painel", "Assinatura cancelada.", "ok"); carregarPainel(); }
     catch (e) { msg("msg-painel", e.message); }
+  });
+
+  async function acaoAlerta(caminho, metodo = "POST", body = undefined) {
+    try { renderAlertas(await api(caminho, { method: metodo, body })); msg("msg-alertas", ""); }
+    catch (e) { msg("msg-alertas", e.message); }
+  }
+
+  function renderAlertas(a) {
+    $("sec-alertas").classList.remove("hidden");
+    const pill = (id, ok, txt) => { $(id).textContent = txt; $(id).className = "pill " + (ok ? "on" : "off"); };
+    // Telegram
+    pill("tg-status", a.telegram.conectado, a.telegram.conectado ? "conectado" : a.telegram.disponivel ? "desconectado" : "indisponível");
+    const tg = [];
+    if (a.telegram.disponivel && !a.telegram.conectado) {
+      tg.push(el("button", { type: "button", on: { click: async () => {
+        try { const r = await api("/api/alertas/telegram", { method: "POST" }); window.open(r.link, "_blank"); $("tg-dica").classList.remove("hidden"); }
+        catch (e) { msg("msg-alertas", e.message); } } } }, "Conectar Telegram"));
+      tg.push(el("button", { type: "button", class: "sec", on: { click: () => acaoAlerta("/api/alertas/telegram/verificar") } }, "Já enviei"));
+    }
+    if (a.telegram.conectado) tg.push(el("button", { type: "button", class: "danger", on: { click: () => acaoAlerta("/api/alertas/telegram", "DELETE") } }, "Desconectar"));
+    $("tg-acoes").replaceChildren(...tg);
+    if (a.telegram.conectado) $("tg-dica").classList.add("hidden");
+    // WhatsApp
+    pill("wa-status", a.whatsapp.verificado, a.whatsapp.verificado ? "conectado " + a.whatsapp.numero : a.whatsapp.disponivel ? "desconectado" : "indisponível");
+    const wa = [];
+    if (a.whatsapp.disponivel && !a.whatsapp.verificado) {
+      const num = el("input", { placeholder: "DDD + número (ex: 67 99999-9999)", inputmode: "tel", style: "max-width:260px;margin:0" });
+      wa.push(el("div", { class: "row" }, num, el("button", { type: "button", on: { click: () => acaoAlerta("/api/alertas/whatsapp", "POST", { numero: num.value }) } }, "Enviar código")));
+      if (a.whatsapp.aguardando_codigo) {
+        const cod = el("input", { placeholder: "código de 6 dígitos", inputmode: "numeric", style: "max-width:180px;margin:8px 0 0" });
+        wa.push(el("div", { class: "row" }, cod, el("button", { type: "button", style: "margin-top:8px", on: { click: () => acaoAlerta("/api/alertas/whatsapp/confirmar", "POST", { codigo: cod.value }) } }, "Confirmar")));
+      }
+    }
+    if (a.whatsapp.verificado) wa.push(el("button", { type: "button", class: "danger", on: { click: () => acaoAlerta("/api/alertas/whatsapp", "DELETE") } }, "Desconectar"));
+    $("wa-acoes").replaceChildren(...wa);
+    // Tipos
+    $("alerta-tipos").replaceChildren(...a.tipos.map((t) => {
+      const cb = el("input", { type: "checkbox", style: "width:auto;margin:0 8px 0 0" });
+      cb.checked = t.ativo;
+      cb.addEventListener("change", () => acaoAlerta("/api/alertas", "PUT", { tipos: { [t.id]: cb.checked } }));
+      return el("label", { style: "display:flex;align-items:center;font-weight:400;margin:4px 0" }, cb, t.descricao);
+    }));
+  }
+
+  async function carregarAlertas() { renderAlertas(await api("/api/alertas")); }
+  $("alerta-teste").addEventListener("click", async () => {
+    try { const r = await api("/api/alertas/teste", { method: "POST" }); msg("msg-alertas", "Teste enviado para: " + r.enviado_para.join(", "), "ok"); }
+    catch (e) { msg("msg-alertas", e.message); }
   });
 
   carregarPlanos().then(() => sessao ? carregarPainel().catch(sair) : null)

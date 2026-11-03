@@ -144,6 +144,7 @@
         <input id="t-termos" placeholder="termos separados por vírgula (ex: imposto, IBS, CBS, reforma tributária)">
         <input id="t-excluir" placeholder="excluir termos (ex: futebol, novela)">
         <label>categorias (vazio = todas)</label><div class="chk" id="t-cats"></div>
+        <label style="color:var(--text)"><input type="checkbox" id="t-alertar"> alertar no WhatsApp/Telegram (canais em CONTA → Alertas)</label>
         <div><button type="submit">[+ CRIAR TEMA]</button> <span id="t-msg" class="amber"></span></div>
       </form>
     </div></section>
@@ -338,7 +339,7 @@
   }
 
   function renderTemas() {
-    $("lista-temas").replaceChildren(...(dados.temas.length ? dados.temas.map((t) => el("span", { class: "tag green", style: "padding:3px 8px" }, t.nome + " ",
+    $("lista-temas").replaceChildren(...(dados.temas.length ? dados.temas.map((t) => el("span", { class: "tag green", style: "padding:3px 8px" }, (t.alertar ? "🔔 " : "") + t.nome + " ",
       el("a", { href: "#", title: "remover", on: { click: async (ev) => { ev.preventDefault(); if (!confirm("Remover o tema " + t.nome + "?")) return;
         await api(`/api/temas/${t.id}`, { method: "DELETE" }); if (abaAtual === "tema-" + t.id) abaAtual = "feed"; carregar(); } } }, "✕")))
       : [el("span", { class: "dim" }, "Nenhum tema ainda. Crie temas para acompanhar assuntos específicos (ex.: reforma tributária, H5N1, preço do boi).")]));
@@ -396,7 +397,7 @@
     try {
       const t = await api("/api/temas", { method: "POST", body: {
         nome: $("t-nome").value, termos: $("t-termos").value, excluir: $("t-excluir").value,
-        escopo: $("t-escopo").value, nivel_minimo: $("t-nivel").value,
+        escopo: $("t-escopo").value, nivel_minimo: $("t-nivel").value, alertar: $("t-alertar").checked,
         categorias: [...$("t-cats").querySelectorAll("input:checked")].map((i) => i.value) } });
       ev.target.reset(); $("t-msg").textContent = ""; abaAtual = "tema-" + t.id; carregar();
     } catch (e) { $("t-msg").textContent = e.message; }
