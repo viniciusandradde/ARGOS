@@ -9,7 +9,6 @@ build/
 .venv/
 
 plan/
-CLAUDE.md
 AGENTS.md
 
 # Caches
