@@ -22,7 +22,6 @@ import asyncio
 import csv
 import io
 import json
-import math
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -33,6 +32,7 @@ from mcp_brasil._shared.cache import ttl_cache
 from mcp_brasil._shared.http_client import http_get, http_get_text
 from mcp_brasil.data.noticias.filtros import normalizar
 
+from .client import distancia_km, medicao_local
 from .constants import open_meteo
 
 UA_OSM = {
@@ -122,14 +122,6 @@ class Risco(BaseModel):
 
 
 # --- Geometria -------------------------------------------------------------------
-
-
-def distancia_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
 
 
 def _no_anel(lon: float, lat: float, anel: list[list[float]]) -> bool:
@@ -651,6 +643,12 @@ async def focos_proximos(lat: float, lon: float, raio_km: float = 50) -> list[di
 # --- Agregado -----------------------------------------------------------------------
 
 
+async def _estacao_local(local: Local) -> dict[str, Any] | None:
+    """Best measured reading for the exact point (Embrapa, then INMET)."""
+    leitura = await medicao_local(local.geocodigo, local.lat, local.lon)
+    return leitura.model_dump() if leitura else None
+
+
 async def relatorio(local: Local) -> dict[str, Any]:
     """Everything the local climate dashboard needs, fetched concurrently."""
     resultados = await asyncio.gather(
@@ -658,12 +656,17 @@ async def relatorio(local: Local) -> dict[str, Any]:
         observacao_proxima(round(local.lat, 3), round(local.lon, 3)),
         previsao(round(local.lat, 4), round(local.lon, 4)),
         focos_proximos(local.lat, local.lon),
+        _estacao_local(local),
         return_exceptions=True,
     )
-    avisos, obs, prev, focos = (None if isinstance(r, BaseException) else r for r in resultados)
+    avisos, obs, prev, focos, estacao = (
+        None if isinstance(r, BaseException) else r for r in resultados
+    )
     falhas = [
         nome
-        for nome, r in zip(("inmet", "metar", "previsao", "focos"), resultados, strict=True)
+        for nome, r in zip(
+            ("inmet", "metar", "previsao", "focos", "estacao"), resultados, strict=True
+        )
         if isinstance(r, BaseException)
     ]
     if not isinstance(prev, dict):
@@ -678,6 +681,7 @@ async def relatorio(local: Local) -> dict[str, Any]:
         "local": local.model_dump(),
         "avisos": [a.model_dump() for a in avisos_para(avisos, local)] if avisos else [],
         "observacao": obs.model_dump() if isinstance(obs, Observacao) else None,
+        "estacao": estacao if isinstance(estacao, dict) else None,
         "horas": horas,
         "consenso": cons,
         "riscos": [r.model_dump() for r in avaliar_riscos(horas, cons)] if horas else [],

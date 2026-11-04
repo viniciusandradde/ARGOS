@@ -286,6 +286,86 @@
     c.lat = achado.latitude; c.lon = achado.longitude;
     return c;
   }
+  // ---- Medição real: estação automática do INMET --------------------------------
+  const ESTACAO_DISTANCIA_MAX_KM = 60, ESTACAO_IDADE_MAX_MS = 3 * 3600e3;
+  const numero = (v) => (v === "" || v == null || isNaN(Number(v)) ? null : Number(v));
+  // The endpoint is undocumented: anything stale, distant or incomplete falls back to the model.
+  // Its distance is unreliable (71 km for the station inside Campo Grande): coordinates win.
+  function parseEstacao(payload, agora = Date.now(), lat = null, lon = null) {
+    const e = (payload && payload.estacao) || {}, d = (payload && payload.dados) || {};
+    const temperatura = numero(d.TEM_INS), latE = numero(e.LATITUDE), lonE = numero(e.LONGITUDE);
+    const distancia = lat != null && lon != null && latE != null && lonE != null
+      ? Math.round(distanciaKm(lat, lon, latE, lonE) * 10) / 10 : numero(e.DISTANCIA_EM_KM);
+    if (temperatura == null || distancia == null || distancia > ESTACAO_DISTANCIA_MAX_KM) return null;
+    const hora = String(d.HR_MEDICAO || "");
+    const quando = Date.parse(`${d.DT_MEDICAO}T${hora.slice(0, 2)}:${hora.slice(2, 4)}:00Z`);
+    if (isNaN(quando) || agora - quando > ESTACAO_IDADE_MAX_MS) return null;
+    const kmh = (v) => (numero(v) == null ? null : Math.round(numero(v) * 36) / 10);
+    const codigo = String(e.CODIGO || d.CD_ESTACAO || ""), nome = String(e.NOME || d.DC_NOME || "");
+    return { rotulo: `INMET ${codigo} ${nome}`, codigo, nome, distancia_km: distancia,
+      quando: new Date(quando).toISOString(), temperatura, umidade: numero(d.UMD_INS), vento_kmh: kmh(d.VEN_VEL),
+      rajada_kmh: kmh(d.VEN_RAJ), lat: latE, lon: lonE };
+  }
+  async function estacaoProxima(geocodigo, lat, lon) {
+    if (!geocodigo) return null;
+    return parseEstacao(await http("https://apiprevmet3.inmet.gov.br/estacao/proxima/" + geocodigo), Date.now(), lat, lon);
+  }
+  // ---- Medição real: estações da Embrapa (a cada 15 min) --------------------------
+  const GUIA_CLIMA = "https://www.cpao.embrapa.br/gc/api/v1/guiaclima", GUIA_CLIMA_RAIO_KM = 25;
+  const GUIA_CLIMA_ESTACOES = [[1, "Dourados Embrapa", -22.2753, -54.8183], [5, "Dourados UFGD", -22.2333, -54.9861],
+    [3, "Rio Brilhante", -21.8461, -54.5383], [4, "Ivinhema", -22.3889, -53.8869], [6, "Naviraí", -23.0258, -54.1894]];
+  function parseGuiaClima(real, hoje, estacao, lat, lon, agora = Date.now()) {
+    const [codigo, nome, latE, lonE] = estacao, temperatura = numero(real && real.temp_c_avg);
+    const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2})$/.exec(String(real && real.day));
+    if (temperatura == null || !m) return null;
+    const quando = Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:00-04:00`); // local time, no offset in the API
+    if (isNaN(quando) || agora - quando > ESTACAO_IDADE_MAX_MS) return null;
+    const mesmoDia = hoje && hoje.day === `${m[3]}-${m[2]}-${m[1]}`, vento = numero(real.u2m_ms);
+    return { rotulo: `Embrapa Guia Clima · ${nome}`, codigo: String(codigo), nome, distancia_km: Math.round(distanciaKm(lat, lon, latE, lonE) * 10) / 10,
+      quando: new Date(quando).toISOString(), temperatura, umidade: numero(real.urc_pctg_avg), vento_kmh: vento == null ? null : Math.round(vento * 36) / 10,
+      rajada_kmh: null, hoje_max: mesmoDia ? numero(hoje.temp_c_max) : null, hoje_min: mesmoDia ? numero(hoje.temp_c_min) : null, lat: latE, lon: lonE };
+  }
+  async function guiaClimaProximo(lat, lon) {
+    const e = [...GUIA_CLIMA_ESTACOES].sort((a, b) => distanciaKm(lat, lon, a[2], a[3]) - distanciaKm(lat, lon, b[2], b[3]))[0];
+    if (distanciaKm(lat, lon, e[2], e[3]) > GUIA_CLIMA_RAIO_KM) return null;
+    const params = { cod_estacao: e[0] };
+    const [real, hoje] = await Promise.all([http(GUIA_CLIMA + "/tempoReal", { params }), http(GUIA_CLIMA + "/leituraAtual", { params }).catch(() => ({}))]);
+    return parseGuiaClima(real, hoje, e, lat, lon);
+  }
+  async function medicaoLocal(geocodigo, lat, lon) {
+    const leitura = await guiaClimaProximo(lat, lon).catch(() => null);
+    return leitura || estacaoProxima(geocodigo, lat, lon);
+  }
+  // Official daily forecast as {ISO date: [min, max]}; near days are split by period.
+  function parsePrevisaoInmet(payload, geocodigo) {
+    const saida = {};
+    for (const [dia, conteudo] of Object.entries((payload && payload[geocodigo]) || {})) {
+      if (!conteudo || typeof conteudo !== "object") continue;
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dia);
+      const sub = Object.values(conteudo).filter((p) => p && typeof p === "object");
+      const periodos = sub.length ? sub : [conteudo];
+      const mins = periodos.map((p) => numero(p.temp_min)).filter((v) => v != null);
+      const maxs = periodos.map((p) => numero(p.temp_max)).filter((v) => v != null);
+      if (m && mins.length && maxs.length) saida[`${m[3]}-${m[2]}-${m[1]}`] = [Math.min(...mins), Math.max(...maxs)];
+    }
+    return saida;
+  }
+  const previsaoInmet = (geocodigo) => cache("prev-inmet:" + geocodigo, 3 * 3600e3, async () =>
+    parsePrevisaoInmet(await http("https://apiprevmet3.inmet.gov.br/previsao/" + geocodigo, { timeout: 40000 }), geocodigo));
+  // Lowest and highest daily maximum among the models, for days with two or more.
+  function parseFaixa(d) {
+    const di = (d && d.daily) || {}, faixa = {};
+    (di.time || []).forEach((dia, i) => {
+      const vs = Object.keys(MODELOS).map((k) => (di["temperature_2m_max_" + k] || [])[i]).filter((v) => v != null);
+      if (vs.length >= 2) faixa[dia] = [Math.min(...vs), Math.max(...vs)];
+    });
+    return faixa;
+  }
+  async function faixaModelos(lat, lon) {
+    const [url, params] = openMeteo("https://api.open-meteo.com/v1/forecast", { latitude: lat, longitude: lon,
+      timezone: "auto", forecast_days: 5, daily: "temperature_2m_max", models: Object.keys(MODELOS).join(",") });
+    return parseFaixa(await http(url, { params }));
+  }
   async function coletarClima(estado) {
     const cfg = config();
     const res = await pool(cfg.cidades, 3, async (c) => {
@@ -295,11 +375,16 @@
           latitude: c.lat, longitude: c.lon, timezone: "auto", forecast_days: 5,
           current: "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
           daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code" });
-        const d = await http(url, { params });
+        const [d, leitura, faixa, oficial] = await Promise.all([http(url, { params }),
+          medicaoLocal(c.geocodigo, c.lat, c.lon).catch(() => null), faixaModelos(c.lat, c.lon).catch(() => ({})),
+          previsaoInmet(c.geocodigo).catch(() => ({}))]);
         const a = d.current || {}, di = d.daily || {};
-        return { cidade: `${c.nome}/${c.uf}`, temperatura: a.temperature_2m, umidade: a.relative_humidity_2m,
-          vento: a.wind_speed_10m, codigo: a.weather_code,
-          previsao: (di.time || []).map((t, i) => ({ data: t, tmin: di.temperature_2m_min[i], tmax: di.temperature_2m_max[i],
+        return { cidade: `${c.nome}/${c.uf}`, temperatura: leitura ? leitura.temperatura : a.temperature_2m,
+          umidade: leitura?.umidade ?? a.relative_humidity_2m, vento: leitura?.vento_kmh ?? a.wind_speed_10m, codigo: a.weather_code,
+          estacao: leitura?.rotulo ?? null, estacao_km: leitura?.distancia_km ?? null, observado_em: leitura?.quando ?? null,
+          hoje_max: leitura?.hoje_max ?? null, hoje_min: leitura?.hoje_min ?? null,
+          previsao: (di.time || []).map((t, i) => ({ data: t, tmin: oficial[t]?.[0] ?? di.temperature_2m_min[i], tmax: oficial[t]?.[1] ?? di.temperature_2m_max[i],
+            tmax_baixa: faixa[t]?.[0] ?? null, tmax_alta: faixa[t]?.[1] ?? null, fonte: oficial[t] ? "INMET" : "Open-Meteo",
             chuva_mm: di.precipitation_sum[i], prob_chuva: di.precipitation_probability_max[i], codigo: di.weather_code[i] })) };
       } catch (_) { return null; }
     });
@@ -633,9 +718,9 @@
   }
   async function relatorioLocal(sel) {
     const local = await localizar(sel);
-    const nomes = ["inmet", "metar", "previsao", "focos"];
-    const res = await Promise.allSettled([avisosAtivos(), observacao(local.lat, local.lon), previsao(local.lat, local.lon), focosProximos(local.lat, local.lon)]);
-    const [avisos, obs, prev0, focos] = res.map((r) => (r.status === "fulfilled" ? r.value : null));
+    const nomes = ["inmet", "metar", "previsao", "focos", "estacao"];
+    const res = await Promise.allSettled([avisosAtivos(), observacao(local.lat, local.lon), previsao(local.lat, local.lon), focosProximos(local.lat, local.lon), medicaoLocal(local.geocodigo, local.lat, local.lon)]);
+    const [avisos, obs, prev0, focos, estacao] = res.map((r) => (r.status === "fulfilled" ? r.value : null));
     let falhas = nomes.filter((_, i) => res[i].status === "rejected");
     let prev = prev0;
     if (!prev) {
@@ -651,7 +736,7 @@
       return x;
     }).filter((a) => a.dentro_do_poligono || (local.geocodigo && a.geocodes.includes(local.geocodigo)))
       .sort((a, b) => (ordem[a.severidade] ?? 3) - (ordem[b.severidade] ?? 3));
-    const r = { local, avisos: avisosLocal, observacao: obs, horas, consenso: cons,
+    const r = { local, avisos: avisosLocal, observacao: obs, estacao, horas, consenso: cons,
       riscos: horas.time && horas.time.length ? avaliarRiscos(horas, cons) : [], focos: focos || [],
       elevacao_m: prev ? prev.elevation : null, fonte_previsao: prev ? prev.fonte : "", falhas, gerado_em: new Date().toISOString() };
     store.set("clima_ultimo", r);
@@ -659,5 +744,5 @@
   }
 
   window.ArgosMotor = { config, salvarConfig, coletarTudo, painel, registrarPreco, relatorioLocal, listarBairros,
-    classificar, parseFeed, parseOni, parseSemanal, parseDiscussao, pontoNoPoligono, avaliarRiscos, store, ETAPAS: Object.keys(ETAPAS) };
+    classificar, parseEstacao, parseFaixa, parseGuiaClima, parsePrevisaoInmet, parseFeed, parseOni, parseSemanal, parseDiscussao, pontoNoPoligono, avaliarRiscos, store, ETAPAS: Object.keys(ETAPAS) };
 })();

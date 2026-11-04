@@ -9,6 +9,21 @@ CPC_RONI = "https://www.cpc.ncep.noaa.gov/data/indices/RONI.ascii.txt"
 CPC_SST_SEMANAL = "https://www.cpc.ncep.noaa.gov/data/indices/wksst9120.for"
 
 OPEN_METEO_PREVISAO = "https://api.open-meteo.com/v1/forecast"
+INMET_ESTACAO_PROXIMA = "https://apiprevmet3.inmet.gov.br/estacao/proxima"
+INMET_PREVISAO = "https://apiprevmet3.inmet.gov.br/previsao"
+GUIA_CLIMA = "https://www.cpao.embrapa.br/gc/api/v1/guiaclima"
+GUIA_CLIMA_RAIO_KM = 25
+# Embrapa Agropecuária Oeste stations: code, name, latitude, longitude
+GUIA_CLIMA_ESTACOES = (
+    (1, "Dourados Embrapa", -22.2753, -54.8183),
+    (5, "Dourados UFGD", -22.2333, -54.9861),
+    (3, "Rio Brilhante", -21.8461, -54.5383),
+    (4, "Ivinhema", -22.3889, -53.8869),
+    (6, "Naviraí", -23.0258, -54.1894),
+)
+ESTACAO_DISTANCIA_MAX_KM = 60  # beyond this a reading no longer represents the city
+ESTACAO_IDADE_MAX_H = 3
+MODELOS_FAIXA = ("ecmwf_ifs025", "icon_global", "gfs_seamless")
 OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search"
 OPEN_METEO_AR = "https://air-quality-api.open-meteo.com/v1/air-quality"
 

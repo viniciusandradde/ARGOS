@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import AsyncIterator
 from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any, ClassVar
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from fastmcp import FastMCP
 
+from mcp_brasil.data.clima import client as clima_client
+from mcp_brasil.data.clima import local as clima_local
+from mcp_brasil.data.clima.schemas import LeituraEstacao
 from mcp_brasil.radar import coletor, install
 from mcp_brasil.radar.auth import RadarTokenVerifier
+from mcp_brasil.radar.coletor import ConfigColeta, coletar_clima
 from mcp_brasil.radar.indicadores import Indicadores
 from mcp_brasil.radar.painel import montar, validar_tema
 from mcp_brasil.radar.servico import RadarService
@@ -215,3 +223,101 @@ class TestRotasClima:
         assert "Dourados" in municipios and len(municipios) == 79
         page = await http.get("/clima")
         assert page.status_code == 200 and "RADAR CLIMÁTICO LOCAL" in page.text
+
+
+class TestClimaMedido:
+    PREVISAO: ClassVar[dict[str, dict[str, Any]]] = {
+        "current": {
+            "temperature_2m": 28.9,
+            "relative_humidity_2m": 70,
+            "wind_speed_10m": 10,
+            "weather_code": 2,
+        },
+        "daily": {
+            "time": ["2026-11-04"],
+            "temperature_2m_min": [21.0],
+            "temperature_2m_max": [33.3],
+            "precipitation_sum": [3.7],
+            "precipitation_probability_max": [69],
+            "weather_code": [95],
+        },
+    }
+    LEITURA = LeituraEstacao(
+        rotulo="Embrapa Guia Clima · Dourados Embrapa",
+        codigo="1",
+        nome="Dourados Embrapa",
+        distancia_km=6,
+        quando="2026-11-04T22:00:00+00:00",
+        temperatura=31.9,
+        umidade=52,
+        vento_kmh=15.5,
+        hoje_max=35.4,
+        hoje_min=24.5,
+    )
+
+    def _preparar(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        medicao: AsyncMock,
+        oficial: AsyncMock | None = None,
+    ) -> None:
+        local = [{"latitude": -22.2, "longitude": -54.8, "admin1": "Mato Grosso do Sul"}]
+        monkeypatch.setattr(clima_client, "geocodificar", AsyncMock(return_value=local))
+        monkeypatch.setattr(clima_client, "previsao", AsyncMock(return_value=self.PREVISAO))
+        monkeypatch.setattr(clima_client, "qualidade_ar", AsyncMock(return_value={}))
+        monkeypatch.setattr(clima_client, "medicao_local", medicao)
+        monkeypatch.setattr(
+            clima_client,
+            "previsao_inmet",
+            oficial or AsyncMock(return_value={"2026-11-04": (23.0, 36.0)}),
+        )
+        monkeypatch.setattr(
+            clima_client,
+            "faixa_modelos",
+            AsyncMock(return_value={"2026-11-04": (33.2, 36.7)}),
+        )
+        monkeypatch.setattr(clima_local, "geocodigo_ibge", lambda cidade, uf: "5003702")
+
+    @pytest.mark.asyncio
+    async def test_prefere_a_estacao(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._preparar(monkeypatch, AsyncMock(return_value=self.LEITURA))
+        ind = Indicadores(":memory:")
+        await coletar_clima(ind, ConfigColeta(cidades=["Dourados/MS"]))
+        atual = ind.consultar("SELECT * FROM clima_atual")[0]
+        assert (atual["temperatura"], atual["umidade"], atual["vento"]) == (31.9, 52, 15.5)
+        assert atual["estacao"] == "Embrapa Guia Clima · Dourados Embrapa"
+        assert (atual["hoje_max"], atual["hoje_min"]) == (35.4, 24.5)
+        assert atual["codigo"] == 2  # the sky condition still comes from the model
+        dia = ind.consultar("SELECT * FROM clima_previsao")[0]
+        assert (dia["tmin"], dia["tmax"], dia["fonte"]) == (23.0, 36.0, "INMET")
+        assert (dia["tmax_baixa"], dia["tmax_alta"]) == (33.2, 36.7)
+
+    @pytest.mark.asyncio
+    async def test_usa_o_modelo_se_a_estacao_falhar(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        falha = AsyncMock(side_effect=RuntimeError("fora do ar"))
+        self._preparar(monkeypatch, falha, falha)
+        ind = Indicadores(":memory:")
+        await coletar_clima(ind, ConfigColeta(cidades=["Dourados/MS"]))
+        atual = ind.consultar("SELECT * FROM clima_atual")[0]
+        assert atual["temperatura"] == 28.9
+        assert atual["estacao"] is None
+        dia = ind.consultar("SELECT * FROM clima_previsao")[0]
+        assert (dia["tmax"], dia["fonte"]) == (33.3, "Open-Meteo")
+
+    def test_migra_banco_existente(self, tmp_path: Path) -> None:
+        caminho = tmp_path / "indicadores.db"
+        antigo = sqlite3.connect(caminho)
+        antigo.executescript(
+            "CREATE TABLE clima_atual (cidade TEXT PRIMARY KEY, temperatura REAL, umidade REAL, "
+            "vento REAL, codigo INTEGER, aqi REAL, atualizado_em TEXT NOT NULL);"
+            "CREATE TABLE clima_previsao (cidade TEXT NOT NULL, data TEXT NOT NULL, tmin REAL, "
+            "tmax REAL, chuva_mm REAL, prob_chuva REAL, codigo INTEGER, "
+            "PRIMARY KEY (cidade, data));"
+            "INSERT INTO clima_atual (cidade, atualizado_em) VALUES ('Dourados/MS', 'x');"
+        )
+        antigo.close()
+        ind = Indicadores(str(caminho))
+        linha = ind.consultar("SELECT * FROM clima_atual")[0]
+        assert linha["cidade"] == "Dourados/MS"
+        assert linha["estacao"] is None
+        assert ind.consultar("SELECT tmax_alta FROM clima_previsao") == []

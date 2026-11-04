@@ -80,12 +80,14 @@ CREATE TABLE IF NOT EXISTS enso_semanal (
 CREATE TABLE IF NOT EXISTS clima_atual (
     cidade TEXT PRIMARY KEY,
     temperatura REAL, umidade REAL, vento REAL, codigo INTEGER, aqi REAL,
-    atualizado_em TEXT NOT NULL
+    atualizado_em TEXT NOT NULL,
+    estacao TEXT, estacao_km REAL, observado_em TEXT, hoje_max REAL, hoje_min REAL
 );
 CREATE TABLE IF NOT EXISTS clima_previsao (
     cidade TEXT NOT NULL,
     data TEXT NOT NULL,
     tmin REAL, tmax REAL, chuva_mm REAL, prob_chuva REAL, codigo INTEGER,
+    tmax_baixa REAL, tmax_alta REAL, fonte TEXT,
     PRIMARY KEY (cidade, data)
 );
 CREATE TABLE IF NOT EXISTS avisos_inmet (
@@ -121,6 +123,18 @@ def agora_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+_COLUNAS_NOVAS = {
+    "clima_atual": {
+        "estacao": "TEXT",
+        "estacao_km": "REAL",
+        "observado_em": "TEXT",
+        "hoje_max": "REAL",
+        "hoje_min": "REAL",
+    },
+    "clima_previsao": {"tmax_baixa": "REAL", "tmax_alta": "REAL", "fonte": "TEXT"},
+}
+
+
 class Indicadores:
     def __init__(self, path: str) -> None:
         if path != ":memory:":
@@ -130,6 +144,16 @@ class Indicadores:
         self._conn = sqlite3.connect(path, check_same_thread=False, timeout=30)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrar()
+
+    def _migrar(self) -> None:
+        """Add columns introduced after the first release to existing databases."""
+        for tabela, colunas in _COLUNAS_NOVAS.items():
+            existentes = {c["name"] for c in self._conn.execute(f"PRAGMA table_info({tabela})")}
+            for nome, tipo in colunas.items():
+                if nome not in existentes:
+                    self._conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
+        self._conn.commit()
 
     def executar_varios(self, sql: str, linhas: list[tuple[Any, ...]]) -> None:
         if not linhas:

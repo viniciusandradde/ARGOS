@@ -73,7 +73,7 @@
 <header>
   <div class="top">
     <div class="brand glow">{{NOME}} <small>// RADAR CLIMÁTICO LOCAL</small></div>
-    <span class="stat">BRT <b id="relogio">--:--:--</b></span>
+    <span class="stat">LOCAL <b id="relogio">--:--:--</b></span>
     <span class="stat" id="status">AGUARDANDO LOCAL</span>
     <span class="sp"></span>
     <span class="stat">ATUALIZA EM <b id="contagem">--</b></span>
@@ -98,7 +98,7 @@
   <section class="p"><h2>[ LOCAL ANALISADO ]</h2><div class="body" id="local"></div></section>
   <section class="p wide"><h2>[ RISCO NAS PRÓXIMAS 48H // CRITÉRIOS INMET · NOAA ] <small id="gerado"></small></h2><div class="body"><div class="cards" id="riscos"></div></div></section>
   <section class="p"><h2>[ AVISOS OFICIAIS INMET NO PONTO ]</h2><div class="body"><ul class="lst" id="avisos"></ul></div></section>
-  <section class="p"><h2>[ OBSERVAÇÃO REAL // METAR ]</h2><div class="body" id="obs"></div></section>
+  <section class="p"><h2>[ OBSERVAÇÃO REAL // EMBRAPA · INMET · METAR ]</h2><div class="body" id="obs"></div></section>
   <section class="p"><h2>[ FOCOS DE QUEIMADA // INPE · 50 KM ]</h2><div class="body" id="focos"></div></section>
   <section class="p w2"><h2>[ TEMPERATURA × SENSAÇÃO TÉRMICA ] <small>°C · 48h</small></h2><div class="body" id="g-temp"></div></section>
   <section class="p"><h2>[ VENTO × RAJADAS ] <small>km/h · limiares INMET</small></h2><div class="body" id="g-vento"></div></section>
@@ -108,7 +108,7 @@
   <section class="p wide"><h2>[ FONTES E PRECISÃO ]</h2><div class="body dim" id="fontes">
     <p><b class="green">Avisos INMET</b> — polígono oficial de cada aviso; testamos se o ponto exato está dentro dele (maior precisão espacial disponível no Brasil para alertas).</p>
     <p><b class="green">Previsão</b> — modelos ECMWF IFS (~9 km), DWD ICON (~13 km) e NOAA GFS (~13–25 km) via Open-Meteo, hora a hora, interpolados para a coordenada. Bairros vizinhos podem receber valores parecidos: a resolução física dos modelos é de quilômetros, não de metros.</p>
-    <p><b class="green">Observação</b> — METAR do aeroporto mais próximo (NOAA Aviation Weather Center), medição real a cada hora.</p>
+    <p><b class="green">Observação</b> — estação da Embrapa ou do INMET mais próxima e METAR do aeroporto mais próximo (NOAA Aviation Weather Center), medições reais a cada hora.</p>
     <p><b class="green">Queimadas</b> — focos detectados por satélite (INPE/BDQueimadas). <b class="green">Bairros</b> — OpenStreetMap (Nominatim, Photon, Overpass).</p>
     <p>Limiares: vento 40/60/100 km/h e chuva 20/30/60 mm/h (INMET) · índice de calor 32/41/54 °C (NOAA) · umidade 30/20/12 % (INMET) · CAPE 1000/2500 J/kg.</p>
   </div></section>
@@ -224,10 +224,17 @@
       : [vazio("Nenhum aviso do INMET vigente para este ponto.")]));
 
     // Observação
-    const o = r.observacao, h = r.horas;
+    const o = r.observacao, h = r.horas, e = r.estacao;
+    const blocoEstacao = e ? [
+      el("div", { class: "green" }, e.rotulo),
+      el("div", { class: "dim", style: "font-size:11px" }, `a ${num(e.distancia_km)} km do ponto · ${new Date(e.quando).toLocaleString("pt-BR")}`),
+      el("div", { class: "row", style: "display:flex;gap:18px;margin:8px 0;flex-wrap:wrap" },
+        el("div", {}, el("div", { class: "dim" }, "MEDIDO"), el("div", { class: "big cyan" }, num(e.temperatura, 1) + "°C")),
+        el("div", {}, el("div", { class: "dim" }, "MODELO AGORA"), el("div", { class: "big green" }, num(h.temperature_2m?.[0], 1) + "°C")),
+        el("div", {}, el("div", { class: "dim" }, "UMIDADE"), el("div", { class: "big amber", style: "font-size:22px" }, num(e.umidade, 0) + "%")))] : [];
     if (o) {
       const iAgora = 0;
-      preencher("obs",
+      preencher("obs", ...blocoEstacao,
         el("div", { class: "green" }, `${o.estacao} · ${o.nome}`),
         el("div", { class: "dim", style: "font-size:11px" }, `a ${num(o.distancia_km)} km do ponto · ${new Date(o.quando).toLocaleString("pt-BR")}`),
         el("div", { class: "row", style: "display:flex;gap:18px;margin:8px 0;flex-wrap:wrap" },
@@ -236,7 +243,8 @@
           el("div", {}, el("div", { class: "dim" }, "VENTO"), el("div", { class: "big amber", style: "font-size:22px" }, num(o.vento_kmh, 0) + (o.rajada_kmh ? "/" + num(o.rajada_kmh, 0) : "") + " km/h"))),
         o.fenomeno ? el("div", { class: "red" }, "Fenômeno: " + o.fenomeno) : null,
         el("code", { class: "dim", style: "font-size:11px;word-break:break-all" }, o.bruto));
-    } else $("obs").replaceChildren(vazio("Nenhuma estação METAR transmitindo num raio de ~250 km."));
+    } else if (e) preencher("obs", ...blocoEstacao);
+    else $("obs").replaceChildren(vazio("Nenhuma estação transmitindo perto deste ponto."));
 
     // Focos
     $("focos").replaceChildren(r.focos.length
@@ -328,7 +336,7 @@
   }, () => alert("Não foi possível obter a localização do aparelho.")));
 
   setInterval(() => {
-    $("relogio").textContent = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    $("relogio").textContent = new Date().toLocaleTimeString("pt-BR");
     restante -= 1; $("contagem").textContent = Math.floor(Math.max(restante, 0) / 60) + "min";
     if (restante <= 0) analisar();
   }, 1000);

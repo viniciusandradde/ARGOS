@@ -248,6 +248,7 @@ class TestReservaEChave:
     async def test_relatorio_usa_reserva(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(L, "avisos_ativos", AsyncMock(return_value=[]))
         monkeypatch.setattr(L, "observacao_proxima", AsyncMock(return_value=None))
+        monkeypatch.setattr(L, "medicao_local", AsyncMock(return_value=None))
         monkeypatch.setattr(L, "focos_proximos", AsyncMock(return_value=[]))
         monkeypatch.setattr(L, "previsao", AsyncMock(side_effect=RuntimeError("429")))
         reserva = {"utc_offset_seconds": 0, "hourly": {"time": ["2999-01-01T00:00"],

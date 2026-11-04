@@ -73,3 +73,19 @@ class EventoNatural(BaseModel):
     categoria: str
     data: str = ""
     link: str = ""
+
+
+class LeituraEstacao(BaseModel):
+    rotulo: str
+    codigo: str
+    nome: str
+    distancia_km: float
+    quando: str
+    temperatura: float
+    umidade: float | None = None
+    vento_kmh: float | None = None
+    rajada_kmh: float | None = None
+    hoje_max: float | None = None
+    hoje_min: float | None = None
+    lat: float | None = None
+    lon: float | None = None

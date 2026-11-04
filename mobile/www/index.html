@@ -29,7 +29,7 @@
 <!-- ============ SALA DE SITUAÇÃO ============ -->
 <main id="v-sala" class="view">
   <section class="p"><h2>[ EL NIÑO // NOAA CPC ] <small id="enso-at"></small></h2><div class="body" id="enso"></div></section>
-  <section class="p"><h2>[ CLIMA // OPEN-METEO · INMET ]</h2><div class="body" id="clima"></div></section>
+  <section class="p"><h2>[ CLIMA // EMBRAPA · INMET · OPEN-METEO ]</h2><div class="body" id="clima"></div></section>
   <section class="p"><h2>[ BIOVIGILÂNCIA // INFODENGUE ] <small>arboviroses</small></h2><div class="body" id="arbo"></div></section>
   <section class="p"><h2>[ RADAR DE SURTOS // OMS · ECDC · ONU ] <small id="surtos-n"></small></h2><div class="body scroll"><ul class="lst" id="surtos"></ul></div></section>
   <section class="p"><h2>[ ALERTAS CRÍTICOS // MUNDO ] <small id="crit-n"></small></h2><div class="body scroll"><ul class="lst" id="criticos"></ul></div></section>
@@ -64,7 +64,7 @@
   <section class="p"><h2>[ LOCAL ANALISADO ]</h2><div class="body" id="cl-local"></div></section>
   <section class="p wide"><h2>[ RISCO 48H // INMET · NOAA ] <small id="cl-gerado"></small></h2><div class="body"><div class="cards" id="cl-riscos"></div></div></section>
   <section class="p"><h2>[ AVISOS OFICIAIS INMET NO PONTO ]</h2><div class="body"><ul class="lst" id="cl-avisos"></ul></div></section>
-  <section class="p"><h2>[ OBSERVAÇÃO REAL // METAR ]</h2><div class="body" id="cl-obs"></div></section>
+  <section class="p"><h2>[ OBSERVAÇÃO REAL // EMBRAPA · INMET · METAR ]</h2><div class="body" id="cl-obs"></div></section>
   <section class="p"><h2>[ FOCOS DE QUEIMADA // INPE · 50 KM ]</h2><div class="body" id="cl-focos"></div></section>
   <section class="p w2"><h2>[ TEMPERATURA × SENSAÇÃO ] <small>°C · 48h</small></h2><div class="body" id="g-temp"></div></section>
   <section class="p"><h2>[ VENTO × RAJADAS ] <small>km/h</small></h2><div class="body" id="g-vento"></div></section>
@@ -74,7 +74,7 @@
   <section class="p wide"><h2>[ FONTES E PRECISÃO ]</h2><div class="body dim" style="font-size:12px">
     <p><b class="green">Avisos INMET</b>: polígono oficial; o app testa se o ponto exato está dentro dele.</p>
     <p><b class="green">Previsão</b>: ECMWF (~9 km), ICON (~13 km) e GFS (~13–25 km) via Open-Meteo, hora a hora, interpolados para a coordenada. Reserva: MET Norway.</p>
-    <p><b class="green">Observação</b>: METAR do aeroporto mais próximo (NOAA AWC). <b class="green">Queimadas</b>: INPE. <b class="green">Bairros</b>: OpenStreetMap.</p>
+    <p><b class="green">Observação</b>: estação da Embrapa ou do INMET e METAR do aeroporto mais próximo (NOAA AWC). <b class="green">Queimadas</b>: INPE. <b class="green">Bairros</b>: OpenStreetMap.</p>
     <p>Limiares: vento 40/60/100 km/h · chuva 20/30/60 mm/h (INMET) · calor 32/41/54 °C (NOAA) · umidade 30/20/12 % · CAPE 1000/2500.</p>
   </div></section>
 </main>

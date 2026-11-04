@@ -3,7 +3,8 @@
   "use strict";
   const M = window.ArgosMotor, D = window.ARGOS_DADOS;
   const $ = (id) => document.getElementById(id);
-  const VERSAO = "1.0.0";
+  const VERSAO = "1.1.0";
+  const URL_APK = "https://github.com/viniciusandradde/ARGOS/raw/ccr-d79070a6-p6sovy/mobile/releases/argos-ultima.apk";
   const CAP = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor : null;
   const P = CAP ? CAP.Plugins : {};
   const RUNNER = "br.com.vsa.argos.vigia";
@@ -97,14 +98,22 @@
       })),
       el("p", { class: "dim", style: "font-size:11px" }, `Semana ${String(lista[0].semana).slice(4)}/${String(lista[0].semana).slice(0, 4)} · Rt > 1 = transmissão em expansão`));
   }
+  function origemTemperatura(c) {
+    if (!c.estacao) return "previsão do modelo (sem estação disponível)";
+    const hora = new Date(c.observado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const extremos = c.hoje_max != null ? ` · hoje ${num(c.hoje_min, 1)}–${num(c.hoje_max, 1)}°` : "";
+    return `medido · ${c.estacao} · ${num(c.estacao_km, 0)} km · ${hora}${extremos}`;
+  }
   function renderClima(clima, avisos) {
     const blocos = clima.map((c) => el("div", { style: "margin-bottom:10px" },
       el("div", { class: "row" }, el("b", { class: "green" }, c.cidade.toUpperCase()),
         el("span", { class: "big cyan", style: "font-size:24px" }, num(c.temperatura, 1) + "°C"), el("span", {}, TEMPO[c.codigo] || "")),
       el("div", { class: "dim" }, `umid ${num(c.umidade, 0)}% · vento ${num(c.vento, 0)} km/h`),
+      el("div", { class: "dim", style: "font-size:11px" }, origemTemperatura(c)),
       el("table", {}, ...c.previsao.map((p) => el("tr", {},
         el("td", { class: "dim" }, new Date(p.data + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit" })),
-        el("td", {}, `${num(p.tmin, 0)}–${num(p.tmax, 0)}°`), el("td", { class: p.prob_chuva >= 70 ? "cyan" : "dim" }, `☂ ${num(p.prob_chuva, 0)}%`),
+        el("td", {}, `${num(p.tmin, 0)}–${num(p.tmax, 0)}°`, p.tmax_alta != null ? el("div", { class: "dim", style: "font-size:11px" }, `modelos ${num(p.tmax_baixa, 0)}–${num(p.tmax_alta, 0)}°`) : null),
+        el("td", { class: p.prob_chuva >= 70 ? "cyan" : "dim" }, `☂ ${num(p.prob_chuva, 0)}%`),
         el("td", { class: "n" }, num(p.chuva_mm, 1) + "mm"))))));
     preencher("clima", blocos.length ? blocos : vazio("Aguardando previsão…"),
       el("div", { class: "green", style: "margin-top:6px" }, `INMET · ${avisos.total} avisos vigentes no país`),
@@ -249,7 +258,7 @@
   const legenda = (itens) => el("div", { class: "dim", style: "font-size:11px;margin-top:4px" }, ...itens.flatMap(([cor, t]) => [el("span", { style: `color:${cor}` }, "■ "), t + "   "]));
 
   function renderLocal(r) {
-    const loc = r.local, h = r.horas, o = r.observacao;
+    const loc = r.local, h = r.horas, o = r.observacao, e = r.estacao;
     $("cl-status").textContent = "ok"; $("cl-gerado").textContent = "gerado " + new Date(r.gerado_em).toLocaleTimeString("pt-BR");
     preencher("cl-local", el("div", { class: "green", style: "font-size:15px;font-weight:800" }, loc.nome),
       el("div", { class: "kv", style: "margin-top:8px" },
@@ -275,14 +284,20 @@
       el("div", { style: "font-size:12px" }, a.riscos.slice(0, 260)),
       a.instrucoes ? el("div", { class: "dim", style: "font-size:11px" }, "→ " + a.instrucoes.slice(0, 220)) : null))
       : vazio("Nenhum aviso do INMET vigente para este ponto."));
-    preencher("cl-obs", o ? [el("div", { class: "green" }, `${o.estacao} · ${o.nome}`),
+    const blocoEstacao = e ? [el("div", { class: "green" }, e.rotulo),
+      el("div", { class: "dim", style: "font-size:11px" }, `a ${num(e.distancia_km, 1)} km · ${new Date(e.quando).toLocaleString("pt-BR")}`),
+      el("div", { class: "row", style: "gap:16px;margin:8px 0" },
+        el("div", {}, el("div", { class: "dim" }, "MEDIDO"), el("div", { class: "big cyan" }, num(e.temperatura, 1) + "°C")),
+        el("div", {}, el("div", { class: "dim" }, "MODELO"), el("div", { class: "big green" }, num(h.temperature_2m?.[0], 1) + "°C")),
+        el("div", {}, el("div", { class: "dim" }, "UMIDADE"), el("div", { class: "big amber", style: "font-size:20px" }, num(e.umidade, 0) + "%")))] : [];
+    preencher("cl-obs", blocoEstacao, o ? [el("div", { class: "green" }, `${o.estacao} · ${o.nome}`),
       el("div", { class: "dim", style: "font-size:11px" }, `a ${num(o.distancia_km, 1)} km · ${new Date(o.quando).toLocaleString("pt-BR")}`),
       el("div", { class: "row", style: "gap:16px;margin:8px 0" },
         el("div", {}, el("div", { class: "dim" }, "MEDIDO"), el("div", { class: "big cyan" }, num(o.temperatura, 0) + "°C")),
         el("div", {}, el("div", { class: "dim" }, "MODELO"), el("div", { class: "big green" }, num(h.temperature_2m?.[0], 0) + "°C")),
         el("div", {}, el("div", { class: "dim" }, "VENTO"), el("div", { class: "big amber", style: "font-size:20px" }, num(o.vento_kmh, 0) + (o.rajada_kmh ? "/" + num(o.rajada_kmh, 0) : "") + " km/h"))),
       o.fenomeno ? el("div", { class: "red" }, "Fenômeno: " + o.fenomeno) : null,
-      el("code", { class: "dim", style: "font-size:11px;word-break:break-all" }, o.bruto)] : vazio("Nenhuma estação METAR transmitindo num raio de ~250 km."));
+      el("code", { class: "dim", style: "font-size:11px;word-break:break-all" }, o.bruto)] : e ? null : vazio("Nenhuma estação transmitindo perto deste ponto."));
     preencher("cl-focos", r.focos.length
       ? [el("div", { class: "big red" }, r.focos.length), el("div", {}, `foco(s) em até 50 km · mais próximo a ${num(r.focos[0].distancia_km, 1)} km`),
         el("table", {}, ...r.focos.slice(0, 6).map((f) => el("tr", {}, el("td", {}, num(f.distancia_km, 1) + " km"), el("td", { class: "dim" }, f.satelite),
@@ -457,6 +472,7 @@
     });
     $("sobre").replaceChildren(
       el("b", { class: "green" }, `ARGOS mobile v${VERSAO}`), " · motor local · 48 fontes RSS · NOAA · INMET · InfoDengue · IBGE · Open-Meteo · USGS · INPE · BCE.",
+      el("br"), el("a", { href: URL_APK, target: "_blank", rel: "noopener", class: "green" }, "⬇ Baixar a versão mais recente do app"),
       el("br"), "© 2026 VSA Soluções em Tecnologia. Todos os direitos reservados. Software licenciado — veja LICENCA-ARGOS.md.");
   }
 
@@ -490,7 +506,7 @@
     }
   });
   setInterval(() => {
-    $("relogio").textContent = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + " BRT";
+    $("relogio").textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     restante -= 1;
     $("contagem").textContent = coletando ? "…" : "⏱" + Math.max(0, Math.floor(restante / 60)) + "m";
     if (restante <= 0 && !coletando && document.visibilityState === "visible") coletar();

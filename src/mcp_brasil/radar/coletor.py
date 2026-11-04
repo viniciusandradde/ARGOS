@@ -157,7 +157,7 @@ async def coletar_cambio(ind: Indicadores, cfg: ConfigColeta) -> str:
 
 
 async def coletar_clima(ind: Indicadores, cfg: ConfigColeta) -> str:
-    from mcp_brasil.data.clima import client
+    from mcp_brasil.data.clima import client, local
 
     feitas = 0
     for cidade in cfg.cidades:
@@ -173,23 +173,50 @@ async def coletar_clima(ind: Indicadores, cfg: ConfigColeta) -> str:
             aqi = (await client.qualidade_ar(lat, lon)).get("current", {}).get("us_aqi")
         except Exception:  # air quality is optional
             aqi = None
+        geocodigo = local.geocodigo_ibge(nome, uf or "")
+        try:  # measured data is preferred, but the forecast model always remains as a fallback
+            leitura = await client.medicao_local(geocodigo, lat, lon)
+        except Exception:
+            leitura = None
+        try:
+            oficial = await client.previsao_inmet(geocodigo) if geocodigo else {}
+        except Exception:
+            oficial = {}
+        try:
+            faixa = await client.faixa_modelos(lat, lon, 5)
+        except Exception:
+            faixa = {}
         atual, diario = d.get("current", {}), d.get("daily", {})
+        temperatura, umidade = atual.get("temperature_2m"), atual.get("relative_humidity_2m")
+        vento = atual.get("wind_speed_10m")
+        if leitura:
+            temperatura = leitura.temperatura
+            umidade = leitura.umidade if leitura.umidade is not None else umidade
+            vento = leitura.vento_kmh if leitura.vento_kmh is not None else vento
         ind.executar(
             "INSERT OR REPLACE INTO clima_atual (cidade, temperatura, umidade, vento, codigo, "
-            "aqi, atualizado_em) VALUES (?,?,?,?,?,?,?)",
+            "aqi, atualizado_em, estacao, estacao_km, observado_em, hoje_max, hoje_min) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                cidade, atual.get("temperature_2m"), atual.get("relative_humidity_2m"),
-                atual.get("wind_speed_10m"), atual.get("weather_code"), aqi, agora_iso(),
+                cidade, temperatura, umidade, vento, atual.get("weather_code"), aqi, agora_iso(),
+                leitura.rotulo if leitura else None,
+                leitura.distancia_km if leitura else None,
+                leitura.quando if leitura else None,
+                leitura.hoje_max if leitura else None,
+                leitura.hoje_min if leitura else None,
             ),
         )  # fmt: skip
         ind.executar_varios(
             "INSERT OR REPLACE INTO clima_previsao (cidade, data, tmin, tmax, chuva_mm, "
-            "prob_chuva, codigo) VALUES (?,?,?,?,?,?,?)",
+            "prob_chuva, codigo, tmax_baixa, tmax_alta, fonte) VALUES (?,?,?,?,?,?,?,?,?,?)",
             [
                 (
-                    cidade, dia, diario["temperature_2m_min"][i], diario["temperature_2m_max"][i],
+                    cidade, dia,
+                    *oficial.get(dia, (diario["temperature_2m_min"][i],
+                                       diario["temperature_2m_max"][i])),
                     diario["precipitation_sum"][i], diario["precipitation_probability_max"][i],
-                    diario["weather_code"][i],
+                    diario["weather_code"][i], *faixa.get(dia, (None, None)),
+                    "INMET" if dia in oficial else "Open-Meteo",
                 )
                 for i, dia in enumerate(diario.get("time", []))
             ],

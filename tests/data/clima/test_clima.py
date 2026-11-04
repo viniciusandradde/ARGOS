@@ -1,6 +1,7 @@
 """Tests for the Clima feature (NOAA ENSO, INMET, USGS parsing and tools)."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 from unittest.mock import AsyncMock
 
 import httpx
@@ -128,3 +129,161 @@ class TestTools:
             "mcp_brasil.data.clima.tools.client.geocodificar", AsyncMock(return_value=[])
         )
         assert "não encontrada" in await tools.previsao_tempo("Xyz", AsyncMock())
+
+
+class TestEstacaoInmet:
+    AGORA = datetime(2026, 11, 4, 21, 50, tzinfo=timezone.utc)
+    PAYLOAD: ClassVar[dict[str, dict[str, str]]] = {
+        "estacao": {
+            "CODIGO": "A721",
+            "NOME": "DOURADOS",
+            "DISTANCIA_EM_KM": "9",
+            "LATITUDE": "-22.19388888",
+            "LONGITUDE": "-54.91138888",
+        },
+        "dados": {
+            "DT_MEDICAO": "2026-11-04",
+            "HR_MEDICAO": "2100",
+            "TEM_INS": "32.8",
+            "TEM_MAX": "34.2",
+            "UMD_INS": "46",
+            "VEN_VEL": "1.3",
+            "VEN_RAJ": "11.8",
+        },
+    }
+
+    def test_converte_leitura(self) -> None:
+        r = client.parse_estacao(self.PAYLOAD, agora=self.AGORA)
+        assert r is not None
+        assert (r.codigo, r.nome, r.distancia_km) == ("A721", "DOURADOS", 9.0)
+        assert r.rotulo == "INMET A721 DOURADOS"
+        assert (r.temperatura, r.umidade) == (32.8, 46.0)
+        assert r.vento_kmh == 4.7  # m/s -> km/h
+        assert r.rajada_kmh == 42.5
+        assert r.quando == "2026-11-04T21:00:00+00:00"
+
+    def test_recusa_leitura_antiga(self) -> None:
+        depois = self.AGORA + timedelta(hours=4)
+        assert client.parse_estacao(self.PAYLOAD, agora=depois) is None
+
+    def test_recusa_estacao_distante(self) -> None:
+        longe = {**self.PAYLOAD, "estacao": {**self.PAYLOAD["estacao"], "DISTANCIA_EM_KM": "90"}}
+        assert client.parse_estacao(longe, agora=self.AGORA) is None
+
+    @pytest.mark.parametrize("temperatura", [None, "", "abc"])
+    def test_recusa_sem_temperatura(self, temperatura: str | None) -> None:
+        vazio = {**self.PAYLOAD, "dados": {**self.PAYLOAD["dados"], "TEM_INS": temperatura}}
+        assert client.parse_estacao(vazio, agora=self.AGORA) is None
+
+    def test_coordenadas_valem_mais_que_a_distancia_informada(self) -> None:
+        # The API reports 71 km for the station that sits inside Campo Grande
+        estacao = {
+            **self.PAYLOAD["estacao"],
+            "DISTANCIA_EM_KM": "71",
+            "LATITUDE": "-20.45",
+            "LONGITUDE": "-54.61",
+        }
+        r = client.parse_estacao(
+            {**self.PAYLOAD, "estacao": estacao}, -20.4428, -54.6464, self.AGORA
+        )
+        assert r is not None
+        assert r.distancia_km < 5
+
+    def test_recusa_estacao_distante_pelas_coordenadas(self) -> None:
+        assert client.parse_estacao(self.PAYLOAD, -20.44, -54.64, self.AGORA) is None
+
+    def test_recusa_payload_vazio(self) -> None:
+        assert client.parse_estacao({}, agora=self.AGORA) is None
+        assert client.parse_estacao({"estacao": {}, "dados": None}, agora=self.AGORA) is None
+
+
+class TestFaixaModelos:
+    def test_extremos_por_dia(self) -> None:
+        dados = {
+            "daily": {
+                "time": ["2026-11-04", "2026-11-05"],
+                "temperature_2m_max_ecmwf_ifs025": [33.2, 30.3],
+                "temperature_2m_max_icon_global": [35.0, None],
+                "temperature_2m_max_gfs_seamless": [36.7, 33.0],
+            }
+        }
+        assert client.parse_faixa(dados) == {
+            "2026-11-04": (33.2, 36.7),
+            "2026-11-05": (30.3, 33.0),
+        }
+
+    def test_ignora_dia_com_um_modelo(self) -> None:
+        dados = {"daily": {"time": ["2026-11-04"], "temperature_2m_max_gfs_seamless": [36.7]}}
+        assert client.parse_faixa(dados) == {}
+
+
+class TestGuiaClima:
+    AGORA = datetime(2026, 11, 4, 22, 7, tzinfo=timezone.utc)
+    ESTACAO = (1, "Dourados Embrapa", -22.2753, -54.8183)
+    REAL: ClassVar[dict[str, str]] = {
+        "day": "04/11/2026 18:00",
+        "temp_c_avg": "31.9",
+        "urc_pctg_avg": "52.0",
+        "u2m_ms": "4.3",
+    }
+    HOJE: ClassVar[dict[str, str]] = {
+        "day": "2026-11-04",
+        "temp_c_max": "35.4",
+        "temp_c_min": "24.5",
+    }
+
+    def _ler(self, real: dict[str, str], hoje: dict[str, str], agora: datetime) -> object:
+        return client.parse_guia_clima(real, hoje, self.ESTACAO, -22.22, -54.81, agora)
+
+    def test_converte_leitura_e_extremos(self) -> None:
+        r = client.parse_guia_clima(self.REAL, self.HOJE, self.ESTACAO, -22.22, -54.81, self.AGORA)
+        assert r is not None
+        assert (r.temperatura, r.umidade, r.vento_kmh) == (31.9, 52.0, 15.5)
+        assert (r.hoje_max, r.hoje_min) == (35.4, 24.5)
+        assert r.quando == "2026-11-04T22:00:00+00:00"  # the API sends local time
+        assert r.rotulo == "Embrapa Guia Clima · Dourados Embrapa"
+        assert r.distancia_km < 10
+
+    def test_recusa_leitura_antiga(self) -> None:
+        assert self._ler(self.REAL, self.HOJE, self.AGORA + timedelta(hours=4)) is None
+
+    def test_recusa_sem_temperatura(self) -> None:
+        assert self._ler({**self.REAL, "temp_c_avg": ""}, self.HOJE, self.AGORA) is None
+
+    def test_ignora_extremos_de_outro_dia(self) -> None:
+        r = client.parse_guia_clima(
+            self.REAL, {**self.HOJE, "day": "2026-11-03"}, self.ESTACAO, -22.2, -54.8, self.AGORA
+        )
+        assert r is not None
+        assert r.hoje_max is None
+
+    @pytest.mark.asyncio
+    async def test_fora_do_raio_nao_consulta(self) -> None:
+        assert await client.guia_clima_proximo(-20.44, -54.64) is None
+
+    @pytest.mark.asyncio
+    async def test_usa_inmet_se_embrapa_falhar(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        reserva = AsyncMock(return_value="leitura-inmet")
+        monkeypatch.setattr(client, "guia_clima_proximo", AsyncMock(side_effect=RuntimeError))
+        monkeypatch.setattr(client, "estacao_proxima", reserva)
+        assert await client.medicao_local("5003702", -22.2, -54.8) == "leitura-inmet"
+
+
+class TestPrevisaoInmet:
+    def test_junta_periodos_e_dias_simples(self) -> None:
+        payload = {
+            "5003702": {
+                "04/11/2026": {
+                    "manha": {"temp_min": 23, "temp_max": 36},
+                    "tarde": {"temp_min": 24, "temp_max": 35},
+                },
+                "06/11/2026": {"temp_min": 23, "temp_max": 34, "resumo": "Chuva"},
+            }
+        }
+        assert client.parse_previsao_inmet(payload, "5003702") == {
+            "2026-11-04": (23.0, 36.0),
+            "2026-11-06": (23.0, 34.0),
+        }
+
+    def test_payload_vazio(self) -> None:
+        assert client.parse_previsao_inmet({}, "5003702") == {}

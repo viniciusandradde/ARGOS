@@ -98,7 +98,16 @@ Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0; noite: instalaç
 - Do sandbox não deu para validar: LexML (bloqueio anti-robô do Senado) e Overpass (lista de bairros).
   Nos dois casos o código degrada com mensagem clara.
 - Fontes descartadas: OPAS (403), OMS GHO (500), AwesomeAPI e CoinGecko (cota), CONAB (TLS inválido), GDELT.
-- O aeroporto de Dourados (SBDO) não transmite METAR; a estação mais próxima é Ponta Porã (SBPP, cerca de 96 km).
+- O aeroporto de Dourados (SBDO) não transmite METAR; o METAR mais próximo é Ponta Porã (SBPP, cerca de 96 km).
+- **Fontes de temperatura (04/11/2026):** "agora" = Embrapa Guia Clima (raio de 25 km, `api/v1/guiaclima`, tempoReal e
+  leituraAtual), depois estação INMET (`estacao/proxima/<geocódigo>`), depois modelo. Previsão diária = INMET
+  (`previsao/<geocódigo>`), com Open-Meteo de reserva e faixa ECMWF/ICON/GFS. Esses endpoints **não têm documentação**:
+  falta confirmar com a Embrapa e o INMET o uso comercial. A distância informada pelo INMET não é confiável (71 km para
+  a estação dentro de Campo Grande), por isso ela é calculada pelas coordenadas.
+- Evidência em 04/11/2026: máxima medida 35,4 °C (Embrapa) e 35,5 °C (UFGD); Open-Meteo 33,3, INMET 36, AccuWeather 38.
+- **App 1.1.0:** código pronto, mas o APK não foi gerado: a chave de assinatura não está nesta VPS (nem o Android SDK).
+  `argos-ultima.apk` continua sendo o 1.0.0.
+- Testes nesta VPS: o `.env` do root quebra `load_dotenv`, então rode o pytest numa cópia sem o `.env`.
 - Não existe: recuperação de senha pelo cliente (só a CLI `redefinir-senha`) nem alertas por bairro.
   Os alertas por bairro (polígono do INMET mais modelos) foram sugeridos como próximo passo.
 - App: o vigia nunca rodou num aparelho real (só em Node com shims e no navegador). Validar no celular:

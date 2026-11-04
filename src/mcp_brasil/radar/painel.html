@@ -88,7 +88,7 @@
   <div class="top">
     <div class="brand glow">{{NOME}} <small>// SALA DE SITUAÇÃO</small></div>
     <span class="stat"><span id="led" class="led"></span><b id="estado">CONECTANDO</b></span>
-    <span class="stat">BRT <b id="relogio">--:--:--</b></span>
+    <span class="stat">LOCAL <b id="relogio">--:--:--</b></span>
     <span class="stat">UTC <b id="utc">--:--</b></span>
     <span class="stat">CRÍTICOS <b id="n-crit" class="red">0</b> · ALTOS <b id="n-alto" class="amber">0</b> · 7 DIAS <b id="n-total">0</b></span>
     <span class="sp"></span>
@@ -108,7 +108,7 @@
   <section class="p"><h2>[ BIOVIGILÂNCIA // INFODENGUE ] <small>arboviroses</small></h2><div class="body" id="arbo"></div></section>
   <section class="p"><h2>[ RADAR DE SURTOS // OMS · ECDC · ONU ] <small id="surtos-n"></small></h2><div class="body"><ul class="lst" id="surtos"></ul></div></section>
   <section class="p"><h2>[ ALERTAS CRÍTICOS // MUNDO ] <small id="crit-n"></small></h2><div class="body"><ul class="lst" id="criticos"></ul></div></section>
-  <section class="p"><h2>[ CLIMA // OPEN-METEO · INMET ]</h2><div class="body" id="clima"></div></section>
+  <section class="p"><h2>[ CLIMA // EMBRAPA · INMET · OPEN-METEO ]</h2><div class="body" id="clima"></div></section>
   <section class="p w2"><h2>[ ALIMENTOS // IPCA-IBGE ] <small id="ipca-mes"></small></h2><div class="body" id="alimentos"></div></section>
   <section class="p"><h2>[ PREÇOS NOS MERCADOS // PESQUISA PRÓPRIA ] <small id="precos-cidade"></small></h2>
     <div class="body"><div id="precos"></div>
@@ -253,14 +253,21 @@
       el("p", { class: "dim", style: "font-size:11px" }, `Semana epidemiológica ${String(lista[0].semana).slice(4)}/${String(lista[0].semana).slice(0, 4)} · Rt > 1 = transmissão em expansão`));
   }
 
+  function origemTemperatura(c) {
+    if (!c.estacao) return "previsão do modelo (sem estação disponível)";
+    const hora = new Date(c.observado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const extremos = c.hoje_max != null ? ` · hoje ${num(c.hoje_min, 1)}–${num(c.hoje_max, 1)}°` : "";
+    return `medido · ${c.estacao} · ${num(c.estacao_km, 0)} km · ${hora}${extremos}`;
+  }
   function renderClima(clima, avisos) {
     const blocos = clima.map((c) => el("div", { style: "margin-bottom:10px" },
       el("div", { class: "row" }, el("b", { class: "green" }, c.cidade.toUpperCase()),
         el("span", { class: "big cyan", style: "font-size:24px" }, num(c.temperatura, 1) + "°C"),
         el("span", {}, TEMPO[c.codigo] || ""), el("span", { class: "dim" }, `umid ${num(c.umidade, 0)}% · vento ${num(c.vento, 0)} km/h` + (c.aqi != null ? ` · AQI ${num(c.aqi, 0)}` : ""))),
+      el("div", { class: "dim", style: "font-size:11px" }, origemTemperatura(c)),
       el("table", {}, ...c.previsao.map((p) => el("tr", {},
         el("td", { class: "dim" }, new Date(p.data + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit" })),
-        el("td", {}, `${num(p.tmin, 0)}–${num(p.tmax, 0)}°`), el("td", { class: p.prob_chuva >= 70 ? "cyan" : "dim" }, `☂ ${num(p.prob_chuva, 0)}%`),
+        el("td", {}, `${num(p.tmin, 0)}–${num(p.tmax, 0)}°`, p.tmax_alta != null ? el("div", { class: "dim", style: "font-size:11px" }, `modelos ${num(p.tmax_baixa, 0)}–${num(p.tmax_alta, 0)}°`) : null), el("td", { class: p.prob_chuva >= 70 ? "cyan" : "dim" }, `☂ ${num(p.prob_chuva, 0)}%`),
         el("td", { class: "n" }, num(p.chuva_mm, 1) + "mm"))))));
     const resumo = avisos.resumo.map(([k, v]) => el("div", { class: k.includes("Grande Perigo") ? "red" : k.includes("(Perigo)") ? "amber" : "dim" }, `${v}× ${k}`));
     const area = avisos.na_area.map((a) => el("li", {}, el("span", { class: "tag " + (a.severidade === "Perigo Potencial" ? "amber" : "red") }, a.severidade.toUpperCase()),
@@ -415,7 +422,7 @@
 
   function relogio() {
     const d = new Date();
-    $("relogio").textContent = d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    $("relogio").textContent = d.toLocaleTimeString("pt-BR");
     $("utc").textContent = d.toISOString().slice(11, 16);
     restante -= 1; $("contagem").textContent = Math.max(restante, 0);
     if (restante <= 0) carregar();
