@@ -85,11 +85,10 @@ Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0; noite: instalaç
 
 ## Pendências e pontos de atenção
 
-- **Instalação na VPS compartilhada (`vps-vm-local`, em `/home/projects/ARGOS`):** o build Docker funcionou e o `argos`
-  subiu saudável em 04/11/2026, mas o Caddy não, porque as portas 80/443 são do `dokploy-traefik`. Com isso, o instalador
-  parou antes de criar o admin e o cron de backup. Solução: `sudo bash scripts/instalar_vps.sh --tailscale --email ...`,
-  que publica em `http://100.113.172.123:8062` (só na tailnet). Precisa de root: o `.env` é `root:600` e o usuário `vps`
-  não tem sudo sem senha, então nem `docker compose` roda como `vps`.
+- **Instalado em 04/11/2026 na VPS compartilhada** com `--tailscale`: acesso só pela tailnet, na porta 8062, porque as
+  portas 80/443 são do Traefik do Dokploy. Sem Evolution e sem Metabase. O `.env` é `root:600`, então `docker compose`
+  exige sudo; `docker exec argos-argos-1 ...` funciona sem root.
+- Chaves de conta sem plano ativo recebem 401 no `/mcp`. Admin não precisa de plano.
 - **ufw ligado pelo instalador em 04/11/2026 às 13:09** (entrada em DROP, só SSH/80/443), o que atinge serviços do host
   como o Samba (139/445). Portas publicadas pelo Docker não são afetadas. O usuário decide se mantém.
 - **Open-Meteo:** o plano gratuito não permite uso comercial, então é preciso `OPEN_METEO_API_KEY`. Sem a chave,
