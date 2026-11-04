@@ -31,6 +31,7 @@ HEADER_SESSAO = "x-radar-sessao"
 _PORTAL = pathlib.Path(__file__).with_name("portal.html")
 _PAINEL = pathlib.Path(__file__).with_name("painel.html")
 _CLIMA = pathlib.Path(__file__).with_name("clima.html")
+_ICONE = pathlib.Path(__file__).with_name("argos-icone-192.png")
 
 Handler = Callable[[Request], Awaitable[Response]]
 
@@ -122,6 +123,15 @@ def registrar_rotas(
         return _pagina(_CLIMA, nome)
 
     rota("/clima", ["GET"], clima_html)
+
+    async def icone(request: Request) -> Response:
+        return Response(
+            _ICONE.read_bytes(),
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=604800"},
+        )
+
+    rota("/icone.png", ["GET"], icone)
 
     async def planos(request: Request) -> Response:
         return JSONResponse(

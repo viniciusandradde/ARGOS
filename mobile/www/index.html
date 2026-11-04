@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030805">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: capacitor: http://localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src *">
+<title>ARGOS · Monitoramento</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/argos.css">
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand glow">ARGOS <small id="sub">// SALA DE SITUAÇÃO</small></div>
+    <span class="sp"></span>
+    <span class="stat"><span id="led" class="led busy"></span><b id="estado">INICIANDO</b></span>
+  </div>
+  <div class="top linha2">
+    <span class="stat"><b id="relogio">--:--</b></span>
+    <span class="stat">CRÍT <b id="n-crit" class="red">0</b> · ALTO <b id="n-alto" class="amber">0</b> · 7D <b id="n-total">0</b></span>
+    <span class="sp"></span>
+    <span class="stat"><b id="contagem">--</b></span>
+    <button id="btn-atualizar" type="button" class="mini" aria-label="Atualizar">⟳</button>
+  </div>
+  <div class="ticker"><span class="lbl">ALERTA</span><div id="ticker" class="track"></div></div>
+</header>
+
+<!-- ============ SALA DE SITUAÇÃO ============ -->
+<main id="v-sala" class="view">
+  <section class="p"><h2>[ EL NIÑO // NOAA CPC ] <small id="enso-at"></small></h2><div class="body" id="enso"></div></section>
+  <section class="p"><h2>[ CLIMA // OPEN-METEO · INMET ]</h2><div class="body" id="clima"></div></section>
+  <section class="p"><h2>[ BIOVIGILÂNCIA // INFODENGUE ] <small>arboviroses</small></h2><div class="body" id="arbo"></div></section>
+  <section class="p"><h2>[ RADAR DE SURTOS // OMS · ECDC · ONU ] <small id="surtos-n"></small></h2><div class="body scroll"><ul class="lst" id="surtos"></ul></div></section>
+  <section class="p"><h2>[ ALERTAS CRÍTICOS // MUNDO ] <small id="crit-n"></small></h2><div class="body scroll"><ul class="lst" id="criticos"></ul></div></section>
+  <section class="p w2"><h2>[ ALIMENTOS // IPCA-IBGE ] <small id="ipca-mes"></small></h2><div class="body" id="alimentos"></div></section>
+  <section class="p"><h2>[ PREÇOS NOS MERCADOS // PESQUISA PRÓPRIA ] <small id="precos-cidade"></small></h2>
+    <div class="body"><div id="precos"></div>
+      <form id="form-preco" class="cfg" style="margin-top:8px">
+        <input id="pr-produto" placeholder="produto (ex: arroz 5kg)" required>
+        <div class="row"><input id="pr-mercado" placeholder="mercado" required style="flex:1;min-width:120px">
+          <input id="pr-preco" placeholder="R$" inputmode="decimal" required style="width:90px"></div>
+        <div class="row"><input id="pr-unidade" placeholder="un" value="un" style="width:70px">
+          <input id="pr-data" type="date" style="flex:1"><button type="submit">[+ REGISTRAR]</button></div>
+      </form></div></section>
+  <section class="p"><h2>[ CÂMBIO // BCE ] <small id="cambio-data"></small></h2><div class="body" id="cambio"></div></section>
+  <section class="p"><h2>[ SISMOS // USGS M4.5+ 7 DIAS ]</h2><div class="body" id="sismos"></div></section>
+  <section class="p"><h2>[ STATUS DAS COLETAS // NO APARELHO ]</h2><div class="body" id="coletas"></div></section>
+</main>
+
+<!-- ============ CLIMA LOCAL ============ -->
+<main id="v-clima" class="view hidden">
+  <section class="p wide"><h2>[ RADAR CLIMÁTICO LOCAL // MUNICÍPIO + BAIRRO ] <small id="cl-status">aguardando</small></h2>
+    <div class="body cfg">
+      <div class="row"><select id="cl-uf" aria-label="UF" style="width:78px"></select>
+        <select id="cl-cidade" aria-label="Município" style="flex:1;min-width:0"></select></div>
+      <div class="row"><input id="cl-bairro" list="cl-bairros" placeholder="bairro (opcional)" style="flex:1;min-width:0">
+        <datalist id="cl-bairros"></datalist></div>
+      <div class="row"><button id="cl-analisar" type="button" style="flex:1">[ANALISAR]</button>
+        <button id="cl-gps" type="button" style="flex:1">[📍 MEU LOCAL]</button></div>
+      <span class="dim" style="font-size:11px">ou toque no mapa para escolher o ponto exato</span>
+    </div></section>
+  <section class="p w2"><h2>[ MAPA // PONTO · AVISOS INMET · FOCOS ]</h2><div id="mapa"></div></section>
+  <section class="p"><h2>[ LOCAL ANALISADO ]</h2><div class="body" id="cl-local"></div></section>
+  <section class="p wide"><h2>[ RISCO 48H // INMET · NOAA ] <small id="cl-gerado"></small></h2><div class="body"><div class="cards" id="cl-riscos"></div></div></section>
+  <section class="p"><h2>[ AVISOS OFICIAIS INMET NO PONTO ]</h2><div class="body"><ul class="lst" id="cl-avisos"></ul></div></section>
+  <section class="p"><h2>[ OBSERVAÇÃO REAL // METAR ]</h2><div class="body" id="cl-obs"></div></section>
+  <section class="p"><h2>[ FOCOS DE QUEIMADA // INPE · 50 KM ]</h2><div class="body" id="cl-focos"></div></section>
+  <section class="p w2"><h2>[ TEMPERATURA × SENSAÇÃO ] <small>°C · 48h</small></h2><div class="body" id="g-temp"></div></section>
+  <section class="p"><h2>[ VENTO × RAJADAS ] <small>km/h</small></h2><div class="body" id="g-vento"></div></section>
+  <section class="p w2"><h2>[ CHUVA × PROBABILIDADE ] <small>mm/h · %</small></h2><div class="body" id="g-chuva"></div></section>
+  <section class="p"><h2>[ TEMPESTADE // CAPE ] <small>J/kg</small></h2><div class="body" id="g-cape"></div></section>
+  <section class="p wide"><h2>[ CONSENSO // ECMWF · ICON · GFS ]</h2><div class="body" id="cl-consenso"></div></section>
+  <section class="p wide"><h2>[ FONTES E PRECISÃO ]</h2><div class="body dim" style="font-size:12px">
+    <p><b class="green">Avisos INMET</b>: polígono oficial; o app testa se o ponto exato está dentro dele.</p>
+    <p><b class="green">Previsão</b>: ECMWF (~9 km), ICON (~13 km) e GFS (~13–25 km) via Open-Meteo, hora a hora, interpolados para a coordenada. Reserva: MET Norway.</p>
+    <p><b class="green">Observação</b>: METAR do aeroporto mais próximo (NOAA AWC). <b class="green">Queimadas</b>: INPE. <b class="green">Bairros</b>: OpenStreetMap.</p>
+    <p>Limiares: vento 40/60/100 km/h · chuva 20/30/60 mm/h (INMET) · calor 32/41/54 °C (NOAA) · umidade 30/20/12 % · CAPE 1000/2500.</p>
+  </div></section>
+</main>
+
+<!-- ============ FEED ============ -->
+<main id="v-feed" class="view hidden">
+  <section class="p wide"><h2>[ FEED GLOBAL // 48 FONTES ] <small id="feed-n"></small></h2>
+    <div class="body">
+      <div class="tabs" id="abas"></div>
+      <div class="cfg" id="filtros">
+        <input id="f-q" placeholder="buscar termos (vírgula separa)..." type="search">
+        <div class="row">
+          <select id="f-escopo" style="flex:1"><option value="todos">brasil + mundo</option><option value="brasil">brasil</option><option value="mundo">mundo</option></select>
+          <select id="f-nivel" style="flex:1"><option value="normal">todos níveis</option><option value="alto">alto+</option><option value="critico">crítico</option></select>
+        </div>
+        <div class="row"><select id="f-cat" style="flex:1"><option value="">todas categorias</option></select>
+          <button id="f-aplicar" type="button">[FILTRAR]</button></div>
+      </div>
+      <ul class="lst" id="feed"></ul>
+    </div></section>
+</main>
+
+<!-- ============ CONFIG ============ -->
+<main id="v-config" class="view hidden">
+  <section class="p"><h2>[ CIDADES MONITORADAS ] <small>arboviroses · clima · avisos</small></h2>
+    <div class="body cfg">
+      <div id="lista-cidades" class="row"></div>
+      <div class="row"><select id="c-uf" style="width:78px"></select><select id="c-cidade" style="flex:1;min-width:0"></select></div>
+      <button id="c-add" type="button">[+ ADICIONAR CIDADE]</button>
+    </div></section>
+
+  <section class="p"><h2>[ NOTIFICAÇÕES NO CELULAR ]</h2>
+    <div class="body cfg">
+      <div class="dim" style="font-size:11px">🔴 <b class="red">URGENTE</b>: push com som e vibração, a qualquer hora · ☀ <b class="green">BOLETIM</b>: 1× por manhã, silencioso. Funciona com o app fechado (vigia a cada ~15 min).</div>
+      <div class="chk" style="display:grid">
+        <label><input type="checkbox" id="n-inmet"> 🔴 aviso INMET Perigo / Grande Perigo nas suas cidades ou no ponto do radar</label>
+        <label><input type="checkbox" id="n-risco"> 🔴 risco iminente (12h) ≥ Perigo no ponto do radar: ventania, chuva forte, calor, tempestade</label>
+        <label><input type="checkbox" id="n-surtos"> 🔴 surto / emergência sanitária crítica (OMS, ECDC, ONU, Agência Brasil)</label>
+        <label><input type="checkbox" id="n-criticos"> 🔴 toda notícia crítica (muitas por dia)</label>
+        <label><input type="checkbox" id="n-boletim"> ☀ boletim da manhã: clima, avisos, arboviroses, El Niño, dólar, críticos 24h</label>
+      </div>
+      <span class="dim" style="font-size:11px">Temas com 🔔 também geram alerta urgente.</span>
+      <div class="row"><label class="l">boletim às</label><select id="cfg-hora"></select>
+        <label class="l">coleta no app</label>
+        <select id="cfg-intervalo"><option value="5">5 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select></div>
+      <button id="n-teste" type="button">[ENVIAR BOLETIM AGORA + CHECAR ALERTAS]</button>
+    </div></section>
+
+  <section class="p wide"><h2>[ TEMAS MONITORADOS ] <small>cada tema vira uma aba do feed</small></h2>
+    <div class="body">
+      <div id="lista-temas" class="row" style="margin-bottom:8px"></div>
+      <form id="form-tema" class="cfg">
+        <input id="t-nome" placeholder="nome do tema (ex: Reforma tributária)" required>
+        <input id="t-termos" placeholder="termos, separados por vírgula (ex: imposto, IBS, CBS)">
+        <input id="t-excluir" placeholder="excluir termos (ex: futebol, novela)">
+        <div class="row"><select id="t-escopo" style="flex:1"><option value="todos">brasil + mundo</option><option value="brasil">brasil</option><option value="mundo">mundo</option></select>
+          <select id="t-nivel" style="flex:1"><option value="normal">todos níveis</option><option value="alto">alto+</option><option value="critico">só crítico</option></select></div>
+        <label class="l">categorias (vazio = todas)</label><div class="chk" id="t-cats"></div>
+        <label><input type="checkbox" id="t-alertar"> 🔔 notificar no celular</label>
+        <div><button type="submit">[+ CRIAR TEMA]</button> <span id="t-msg" class="amber"></span></div>
+      </form>
+    </div></section>
+
+  <section class="p"><h2>[ IPCA // LOCALIDADES ] <small>Dourados não é pesquisada pelo IBGE</small></h2>
+    <div class="body"><div class="chk" id="cfg-ipca"></div></div></section>
+
+  <section class="p"><h2>[ AVANÇADO ]</h2>
+    <div class="body cfg">
+      <label class="l">chave Open-Meteo (opcional, plano pago — aumenta o limite diário)</label>
+      <input id="cfg-om" placeholder="apikey" autocomplete="off">
+      <div class="row"><button id="cfg-salvar" type="button">[SALVAR]</button>
+        <button id="cfg-limpar" type="button" style="color:var(--red)">[APAGAR DADOS LOCAIS]</button></div>
+      <p class="dim" style="font-size:11px;margin:0" id="sobre"></p>
+    </div></section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<nav class="bar">
+  <button type="button" data-v="sala" class="on"><span class="ic">◉</span>SALA</button>
+  <button type="button" data-v="clima"><span class="ic">⛈</span>CLIMA</button>
+  <button type="button" data-v="feed"><span class="ic">≣</span>FEED <span class="badge hidden" id="badge-feed"></span></button>
+  <button type="button" data-v="config"><span class="ic">⚙</span>CONFIG</button>
+</nav>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/motor.js"></script>
+<script src="runners/vigia.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

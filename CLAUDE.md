@@ -12,6 +12,11 @@ Siga **`docs/deploy/HANDOFF_VPS.md`** do início ao fim: requisitos, perguntas a
 (`scripts/instalar_vps.sh`), verificação (`scripts/verificar.sh`), backup, atualização e problemas comuns.
 Não suba o Metabase (perfil `relatorios`) sem pedido explícito.
 
+## App Android
+
+Código em `mobile/` (Capacitor). Guia: `docs/mobile/ANDROID.md`. Nova versão: altere `mobile/package.json`
+e rode `bash mobile/scripts/gerar_apk.sh`; mantenha sempre a mesma chave de `mobile/assinatura/`.
+
 ## Visão geral do código
 
 - `src/mcp_brasil/data/<feature>/`: uma pasta por fonte de dados (auto-registry). Cada uma tem

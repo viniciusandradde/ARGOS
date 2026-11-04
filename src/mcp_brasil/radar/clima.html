@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/png" href="/icone.png">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{NOME}} · Radar Climático Local</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -276,7 +277,8 @@
 
     // Mapa
     camadas.clearLayers();
-    for (const a of r.avisos) if (a.poligono) L.geoJSON(a.poligono, { style: { color: a.cor || "#ffb000", weight: 2, fillOpacity: .12 } })
+    const preenchido = r.avisos.find((a) => a.dentro_do_poligono && a.poligono);
+      for (const a of r.avisos) if (a.poligono) L.geoJSON(a.poligono, { style: { color: a.cor || "#ffb000", weight: 1.5, fill: a === preenchido, fillOpacity: .08, dashArray: a.severidade === "Perigo Potencial" ? "6 4" : null } })
       .bindPopup(`${a.evento} — ${a.severidade}<br>${a.inicio} → ${a.fim}`).addTo(camadas);
     for (const f of r.focos) L.circleMarker([f.lat, f.lon], { radius: 5, color: "#ff3355", fillOpacity: .9 }).bindPopup(`Foco ${f.satelite} · ${f.quando}`).addTo(camadas);
     if (o) L.circleMarker([o.lat, o.lon], { radius: 6, color: "#36d6ff", fillOpacity: .9 }).bindPopup(`${o.estacao} ${num(o.temperatura, 0)}°C`).addTo(camadas);

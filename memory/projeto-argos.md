@@ -1,6 +1,6 @@
 # Memória do projeto ARGOS
 
-Estado consolidado em **04/11/2026**. Atualize este arquivo ao fechar cada etapa.
+Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0). Atualize este arquivo ao fechar cada etapa.
 
 ## Quem é o usuário e o que ele quer
 
@@ -22,6 +22,8 @@ Estado consolidado em **04/11/2026**. Atualize este arquivo ao fechar cada etapa
   5. `1982ef9` alertas Telegram e WhatsApp
   6. `0b57c56` WhatsApp via Evolution API (Meta oficial guardada para a próxima versão)
   7. `10ad15b` radar climático local `/clima` e deploy leve em VPS (handoff)
+  8. `a5a6f67` CLAUDE.md versionado + esta memória
+  9. (este) app Android 1.0.0 + vigia de alertas + ícone premium + licença VSA
 - CI: `make ci` (ruff, mypy strict, pytest). Último resultado: **2.447 testes passando**.
 
 ## Arquitetura (resumo)
@@ -44,6 +46,29 @@ Estado consolidado em **04/11/2026**. Atualize este arquivo ao fechar cada etapa
   (`instalar_vps.sh`, `verificar.sh`, `backup.sh`, `atualizar.sh`).
   Roteiro de instalação: `docs/deploy/HANDOFF_VPS.md`. O `CLAUDE.md` aponta para ele.
 - RAM medida: cerca de **190 MB** no processo `argos`, com tudo carregado.
+
+## App Android (`mobile/`)
+
+- Capacitor 8.5.3, appId `br.com.vsa.argos`. **Motor local em JS** (`www/js/motor.js`), porte do coletor e
+  de `clima/local.py`; o celular busca as fontes direto, sem servidor. `CapacitorHttp` nativo evita CORS.
+- Telas: SALA, CLIMA, FEED e CONFIG (`www/index.html` e `www/js/app.js`). Os dados ficam no localStorage.
+- `www/js/dados.js` é **gerado** a partir das constantes Python (`npm run dados` → `scripts/gerar_dados.py`).
+- **Vigia** (`www/runners/vigia.js`), via Background Runner 3.0.0 / WorkManager, roda a cada ~15 min mesmo com o app fechado:
+  - canais `argos_urgente` (push com som e vibração) e `argos_boletim` (1× por manhã, hora configurável, padrão 7 h);
+  - urgente = INMET Perigo ou Grande Perigo (cidades pelo geocódigo, ou ponto dentro do polígono), risco
+    iminente ≥ Perigo em 12 h no ponto do radar, surto crítico (OMS, ECDC, ONU, AB Saúde) e temas 🔔;
+  - deduplicação de 8 dias; no máximo 6 notificações por rodada, o resto agrupado; o boletim tem prioridade;
+  - o app envia a configuração ao vigia com `dispatchEvent('configurar')`; ele roda sem DOM (RSS por regex).
+- Ícone premium: `mobile/marca/argos-icone.svg`, renderizado com `node scripts/gerar_icones.js`
+  (mipmaps, ícone adaptativo, splash e favicon). A web também usa o ícone em `/icone.png`.
+- APK: `bash mobile/scripts/gerar_apk.sh` → `mobile/releases/argos-X.Y.Z.apk`, `argos-ultima.apk` e `.sha256`.
+  A versão vem do `mobile/package.json`. Assinatura: `mobile/assinatura/argos-sideload.jks` + `assinatura.properties`,
+  **fora do Git** (o classificador bloqueou o commit da chave). Cert SHA-256 30:d4:19…dd:94:7b. Sem a mesma chave,
+  a atualização não instala por cima. Restaurar via secret `ARGOS_KEYSTORE_B64` (ver LEIA-ME da pasta).
+- Testes offline do vigia: `cd mobile && npm test` (node:test, fetch mockado).
+- Licença: `LICENCA-ARGOS.md` (proprietária, VSA Soluções em Tecnologia) para radar/, mobile/, deploy e marca.
+  O código do mcp-brasil continua MIT (`LICENSE` intacto). O modelo de licença precisa de revisão jurídica e
+  dos dados da empresa (CNPJ, endereço).
 
 ## Decisões tomadas (não rediscutir sem motivo)
 
@@ -71,9 +96,20 @@ Estado consolidado em **04/11/2026**. Atualize este arquivo ao fechar cada etapa
 - O aeroporto de Dourados (SBDO) não transmite METAR; a estação mais próxima é Ponta Porã (SBPP, cerca de 96 km).
 - Não existe: recuperação de senha pelo cliente (só a CLI `redefinir-senha`) nem alertas por bairro.
   Os alertas por bairro (polígono do INMET mais modelos) foram sugeridos como próximo passo.
+- App: o vigia nunca rodou num aparelho real (só em Node com shims e no navegador). Validar no celular:
+  permissões, notificações com o app fechado e otimização de bateria do fabricante.
+- App: a coleta completa (8 etapas) só roda com o app aberto; com ele fechado roda apenas o vigia (alertas e boletim).
 - Abrir PR só se o usuário pedir.
 
 ## Armadilhas do ambiente (sandbox do Claude Code)
+
+- Android SDK não vem instalado: baixar commandlinetools em `/root/android-sdk` e instalar
+  `platforms;android-36` e `build-tools;36.0.0`. O Maven Central devolve 429: usar o init script
+  `~/.gradle/init.d/espelho.gradle` (espelho do Google `maven-central.storage-download.googleapis.com`).
+- A CARTO passou a exigir chave: o mapa usa tiles do OSM com o filtro de inversão (igual à web).
+- Prints do app: servir `mobile/www` (`python3 -m http.server`) e abrir no Playwright com
+  `--disable-web-security` e `devices["Pixel 7"]`.
+- A ferramenta Write converteu `\u0300` em caracteres reais; escreva intervalos Unicode em regex com escape.
 
 - Não existe Docker daemon; `docker compose config` funciona para validar o arquivo.
 - O endereço de saída é compartilhado e estoura cotas (Open-Meteo diário, AwesomeAPI, CoinGecko). Isso não acontece numa VPS própria.

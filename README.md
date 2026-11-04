@@ -41,6 +41,25 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 Um coletor grava tudo em `indicadores.db`, e o **Metabase** lê esse banco para os relatórios.
 Veja [docs/deploy/argos-sala-de-situacao.md](docs/deploy/argos-sala-de-situacao.md).
 
+## App Android (roda no celular)
+
+![ARGOS no Android](docs/assets/argos-android.png)
+
+O app tem o mesmo visual da sala de situação e **coleta tudo direto do celular, sem servidor**.
+São quatro telas:
+
+- **SALA:** El Niño, clima, avisos do INMET, arboviroses, surtos, IPCA, preços, câmbio e sismos;
+- **CLIMA:** radar por município e bairro, com mapa e riscos em 48 h;
+- **FEED:** 48 fontes de notícias, com temas;
+- **CONFIG:** cidades, temas e preferências de alerta.
+
+Com o app fechado, um vigia em segundo plano envia **alertas urgentes** como push e o **boletim da manhã**.
+
+- **Baixar:** [`mobile/releases/argos-ultima.apk`](mobile/releases/argos-ultima.apk) (versão 1.0.0, Android 7 ou superior)
+- **Instalação, permissões e política de alertas:** [`docs/mobile/ANDROID.md`](docs/mobile/ANDROID.md)
+- **Licença:** © 2026 VSA Soluções em Tecnologia. Os componentes ARGOS são proprietários
+  ([`LICENCA-ARGOS.md`](LICENCA-ARGOS.md)); o código de origem mcp-brasil continua MIT ([`LICENSE`](LICENSE)).
+
 ## Radar Brasil (modo comercial)
 
 Com `MCP_BRASIL_AUTH_MODE=radar`, o servidor vira um produto pago:

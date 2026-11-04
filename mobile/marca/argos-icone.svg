@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="fundo" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#0d2a17"/>
+      <stop offset=".55" stop-color="#05120a"/>
+      <stop offset="1" stop-color="#010402"/>
+    </radialGradient>
+    <linearGradient id="ouro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1b8"/>
+      <stop offset=".35" stop-color="#e6bf55"/>
+      <stop offset=".65" stop-color="#a87a1c"/>
+      <stop offset="1" stop-color="#f3d77a"/>
+    </linearGradient>
+    <radialGradient id="iris" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#b8ffcf"/>
+      <stop offset=".25" stop-color="#33ff77"/>
+      <stop offset=".7" stop-color="#0c7a33"/>
+      <stop offset="1" stop-color="#03200d"/>
+    </radialGradient>
+    <linearGradient id="varredura" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#33ff77" stop-opacity="0"/>
+      <stop offset="1" stop-color="#33ff77" stop-opacity=".75"/>
+    </linearGradient>
+    <filter id="brilho" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="olho"><path d="M56 256 C 130 140, 382 140, 456 256 C 382 372, 130 372, 56 256 Z"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#fundo)"/>
+  <rect x="14" y="14" width="484" height="484" rx="100" fill="none" stroke="url(#ouro)" stroke-width="6" opacity=".9"/>
+  <g stroke="#33ff77" stroke-opacity=".08" stroke-width="2">
+    <path d="M0 128H512M0 192H512M0 320H512M0 384H512M128 0V512M192 0V512M320 0V512M384 0V512"/>
+  </g>
+  <g clip-path="url(#olho)">
+    <rect width="512" height="512" fill="#020a05"/>
+    <circle cx="256" cy="256" r="96" fill="url(#iris)"/>
+    <g fill="none" stroke="#b8ffcf" stroke-opacity=".55" stroke-width="2">
+      <circle cx="256" cy="256" r="72"/><circle cx="256" cy="256" r="48"/>
+      <path d="M160 256H352M256 160V352"/>
+    </g>
+    <path d="M256 256 L352 256 A96 96 0 0 0 323.9 188.1 Z" fill="url(#varredura)"/>
+    <circle cx="256" cy="256" r="30" fill="#010402"/>
+    <circle cx="256" cy="256" r="30" fill="none" stroke="#33ff77" stroke-width="3"/>
+    <circle cx="242" cy="241" r="9" fill="#e9fff0"/>
+    <circle cx="318" cy="214" r="5" fill="#ff3355" filter="url(#brilho)"/>
+  </g>
+  <path d="M56 256 C 130 140, 382 140, 456 256 C 382 372, 130 372, 56 256 Z" fill="none" stroke="url(#ouro)" stroke-width="12" stroke-linejoin="round" filter="url(#brilho)"/>
+  <g stroke="url(#ouro)" stroke-width="7" stroke-linecap="round">
+    <path d="M256 118V86M178 136L160 108M334 136L352 108M110 172L84 150M402 172L428 150"/>
+  </g>
+  <text x="256" y="440" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="800" font-size="54" letter-spacing="14" fill="url(#ouro)">ARGOS</text>
+</svg>

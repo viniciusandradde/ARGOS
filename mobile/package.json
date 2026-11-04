@@ -1,0 +1,25 @@
+{
+  "name": "argos-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ARGOS — monitoramento ativo (Android, motor local)",
+  "author": "VSA Soluções em Tecnologia",
+  "license": "SEE LICENSE IN ../LICENCA-ARGOS.md",
+  "scripts": {
+    "dados": "cd .. && uv run python mobile/scripts/gerar_dados.py",
+    "sync": "npx cap sync android",
+    "apk": "bash scripts/gerar_apk.sh",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/background-runner": "3.0.0",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/geolocation": "8.2.4",
+    "@capacitor/local-notifications": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

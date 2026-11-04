@@ -1,0 +1,30 @@
+{
+  "appId": "br.com.vsa.argos",
+  "appName": "ARGOS",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#030805",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_argos",
+      "iconColor": "#33FF77"
+    },
+    "BackgroundRunner": {
+      "label": "br.com.vsa.argos.vigia",
+      "src": "runners/vigia.js",
+      "event": "vigiar",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
+    },
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css"
+    }
+  }
+}

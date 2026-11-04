@@ -51,6 +51,12 @@ class TestPortal:
         planos = (await http.get("/api/planos")).json()
         assert {p["id"] for p in planos["planos"]} == {"essencial", "profissional", "empresarial"}
 
+    async def test_icone_e_licenca(self, http: httpx.AsyncClient) -> None:
+        r = await http.get("/icone.png")
+        assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+        assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+        assert "VSA Soluções em Tecnologia" in (await http.get("/conta")).text
+
     async def test_fluxo_conta(self, http: httpx.AsyncClient) -> None:
         h = await _sessao(http)
         eu = (await http.get("/api/eu", headers=h)).json()
