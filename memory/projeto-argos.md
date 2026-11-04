@@ -1,6 +1,6 @@
 # Memória do projeto ARGOS
 
-Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0). Atualize este arquivo ao fechar cada etapa.
+Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0; noite: instalação via Tailscale). Atualize este arquivo ao fechar cada etapa.
 
 ## Quem é o usuário e o que ele quer
 
@@ -85,7 +85,13 @@ Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0). Atualize este a
 
 ## Pendências e pontos de atenção
 
-- **Build Docker nunca foi executado.** O sandbox não tem daemon Docker. O primeiro build vai ser na VPS.
+- **Instalação na VPS compartilhada (`vps-vm-local`, em `/home/projects/ARGOS`):** o build Docker funcionou e o `argos`
+  subiu saudável em 04/11/2026, mas o Caddy não, porque as portas 80/443 são do `dokploy-traefik`. Com isso, o instalador
+  parou antes de criar o admin e o cron de backup. Solução: `sudo bash scripts/instalar_vps.sh --tailscale --email ...`,
+  que publica em `http://100.113.172.123:8062` (só na tailnet). Precisa de root: o `.env` é `root:600` e o usuário `vps`
+  não tem sudo sem senha, então nem `docker compose` roda como `vps`.
+- **ufw ligado pelo instalador em 04/11/2026 às 13:09** (entrada em DROP, só SSH/80/443), o que atinge serviços do host
+  como o Samba (139/445). Portas publicadas pelo Docker não são afetadas. O usuário decide se mantém.
 - **Open-Meteo:** o plano gratuito não permite uso comercial, então é preciso `OPEN_METEO_API_KEY`. Sem a chave,
   o radar local usa o MET Norway (sem rajadas nem CAPE).
 - **Envios reais nunca testados:** Evolution, Telegram e Mercado Pago foram testados só com mocks e respx;

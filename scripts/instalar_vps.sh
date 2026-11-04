@@ -4,10 +4,13 @@
 # Uso (na pasta do repositório, como root):
 #   bash scripts/instalar_vps.sh --dominio argos.seudominio.com.br --email voce@seudominio.com.br
 #   bash scripts/instalar_vps.sh --email voce@exemplo.com          # sem domínio: HTTP pelo IP
+#   bash scripts/instalar_vps.sh --tailscale --email voce@exemplo.com  # servidor compartilhado
 # Opções: --whatsapp (sobe a Evolution API)  --sem-firewall  --sem-swap
+#         --tailscale: publica só no IP da VPN, sem mexer no firewall (porta padrão 8062)
+#         --porta N:   porta HTTP usada com --tailscale
 set -euo pipefail
 
-DOMINIO=""; EMAIL=""; WHATSAPP=0; FIREWALL=1; SWAP=1
+DOMINIO=""; EMAIL=""; WHATSAPP=0; FIREWALL=1; SWAP=1; TAILSCALE=0; PORTA=8062; PORTA_HTTPS=8443
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dominio) DOMINIO="$2"; shift 2 ;;
@@ -15,6 +18,8 @@ while [[ $# -gt 0 ]]; do
     --whatsapp) WHATSAPP=1; shift ;;
     --sem-firewall) FIREWALL=0; shift ;;
     --sem-swap) SWAP=0; shift ;;
+    --tailscale) TAILSCALE=1; FIREWALL=0; shift ;;
+    --porta) PORTA="$2"; shift 2 ;;
     *) echo "Opção desconhecida: $1" >&2; exit 2 ;;
   esac
 done
@@ -23,6 +28,38 @@ cd "$(dirname "$0")/.."
 log() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 [[ $EUID -eq 0 ]] || { echo "Rode como root (sudo -i)." >&2; exit 1; }
 [[ -f docker-compose.yml ]] || { echo "Rode dentro da pasta do repositório." >&2; exit 1; }
+
+# Stop before touching the host: a busy port used to abort the install halfway through.
+conferir_porta() {
+  local porta="$1"
+  ss -tlnH "sport = :${porta}" | grep -q . || return 0
+  echo "Porta ${porta} já está em uso nesta máquina:" >&2
+  ss -tlnH "sport = :${porta}" >&2
+  echo "Use --tailscale (e --porta N) ou libere a porta. Nada foi alterado." >&2
+  exit 1
+}
+
+if [[ -n "$DOMINIO" && $TAILSCALE -eq 1 ]]; then
+  echo "--dominio e --tailscale não combinam: o certificado exige as portas 80/443 públicas." >&2
+  exit 2
+fi
+
+BIND_IP=""
+if [[ $TAILSCALE -eq 1 ]]; then
+  BIND_IP=$(tailscale ip -4 2>/dev/null | head -n 1 || true)
+  [[ -n "$BIND_IP" ]] || { echo "Tailscale sem IP. Rode: tailscale up" >&2; exit 1; }
+fi
+
+# A running caddy from a previous install legitimately holds its own ports.
+if [[ -z "$(docker compose ps -q --status running caddy 2>/dev/null)" ]]; then
+  if [[ $TAILSCALE -eq 1 ]]; then
+    conferir_porta "$PORTA"
+    conferir_porta "$PORTA_HTTPS"
+  else
+    conferir_porta 80
+    conferir_porta 443
+  fi
+fi
 
 aleatorio() { head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c "${1:-40}"; }
 
@@ -36,6 +73,12 @@ definir_env() {
   else
     printf '%s=%s\n' "$chave" "$valor" >> .env
   fi
+}
+
+# Same as definir_env, but replaces a value that is already filled in.
+trocar_env() {
+  sed -i -E "/^$1=/d" .env
+  definir_env "$1" "$2"
 }
 
 log "Pacotes básicos"
@@ -66,7 +109,15 @@ log "Configurando .env"
 chmod 600 .env
 IP=$(curl -fsS -4 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 definir_env MCP_BRASIL_AUTH_MODE radar
-if [[ -n "$DOMINIO" ]]; then
+if [[ $TAILSCALE -eq 1 ]]; then
+  trocar_env ARGOS_DOMINIO ":80"
+  trocar_env MCP_BRASIL_BASE_URL "http://$BIND_IP:$PORTA"
+  trocar_env ARGOS_BIND_IP "$BIND_IP"
+  trocar_env ARGOS_PORTA_HTTP "$PORTA"
+  trocar_env ARGOS_PORTA_HTTPS "$PORTA_HTTPS"
+  definir_env EVOLUTION_PORTA 18081
+  definir_env METABASE_PORTA 13000
+elif [[ -n "$DOMINIO" ]]; then
   definir_env ARGOS_DOMINIO "$DOMINIO"
   definir_env MCP_BRASIL_BASE_URL "https://$DOMINIO"
 else

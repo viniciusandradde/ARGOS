@@ -81,6 +81,17 @@ O primeiro build leva de 3 a 8 minutos numa VPS pequena.
 
 **Esperado no final:** `Pronto. Portal: https://argos.empresa.com.br/conta` e a verificação com `[OK]`.
 
+**Servidor compartilhado** (as portas 80/443 já têm dono, como Traefik ou Dokploy): publique só na VPN.
+
+```bash
+sudo bash scripts/instalar_vps.sh --tailscale --email admin@empresa.com.br   # porta padrão 8062
+```
+
+O ARGOS fica em `http://IP_TAILSCALE:8062`, acessível apenas a quem está na tailnet. Nesse modo o
+instalador **não mexe no firewall**, porque o ufw com entrada em DROP bloquearia os outros serviços da
+máquina. Ele para antes de alterar qualquer coisa se a porta estiver ocupada. Webhook do Mercado Pago e
+HTTPS exigem endereço público, então não funcionam nesse modo.
+
 ## 4. Preencher as credenciais externas
 
 ```bash
@@ -191,10 +202,12 @@ docker compose start argos
 | Coletor com `[FALHA]` em uma etapa isolada | Fonte pública fora do ar | Normal e temporário; as outras etapas continuam. Veja de novo em 15 min |
 | Pagamento aprovado mas acesso não liberado | Webhook não chegou ou assinatura inválida | Confira a URL no painel do MP, `MERCADOPAGO_WEBHOOK_SECRET` e `docker compose logs argos \| grep -i webhook` |
 | WhatsApp `status` diferente de `open` | Chip desconectou | Rode `whatsapp conectar` de novo |
+| `Bind for 0.0.0.0:80 failed: port is already allocated` | Outro proxy usa as portas 80/443 | Instale com `--tailscale` (passo 3) |
+| Serviços do host pararam depois da instalação (ex.: Samba) | O instalador ligou o ufw | `ufw allow` para o serviço, ou `ufw disable` se o firewall não era usado |
 
 ## 11. Regras para quem estiver instalando
 
-- **Não** exponha as portas 8061, 8080 ou 3000. Só o Caddy (80/443) fica público.
+- **Não** exponha as portas 8061, 8080 ou 3000. Só o Caddy (80/443, ou a porta da VPN com `--tailscale`) fica acessível.
 - **Não** suba o perfil `relatorios` (Metabase) sem pedido do usuário.
 - **Não** mostre segredos no chat (`.env`, `/root/argos-credenciais.txt`); diga onde estão.
 - Peça confirmação antes de qualquer ação destrutiva (`docker volume rm`, restauração de backup, `git reset`).
