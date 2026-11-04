@@ -105,8 +105,10 @@ Estado consolidado em **04/11/2026** (tarde: app Android 1.0.0; noite: instalaç
   falta confirmar com a Embrapa e o INMET o uso comercial. A distância informada pelo INMET não é confiável (71 km para
   a estação dentro de Campo Grande), por isso ela é calculada pelas coordenadas.
 - Evidência em 04/11/2026: máxima medida 35,4 °C (Embrapa) e 35,5 °C (UFGD); Open-Meteo 33,3, INMET 36, AccuWeather 38.
-- **App 1.1.0:** código pronto, mas o APK não foi gerado: a chave de assinatura não está nesta VPS (nem o Android SDK).
-  `argos-ultima.apk` continua sendo o 1.0.0.
+- **App 1.1.0:** código pronto e compilado com assinatura de depuração, mas o APK final não foi gerado: a chave de
+  assinatura não está nesta VPS. `argos-ultima.apk` continua sendo o 1.0.0.
+- Build nesta VPS: Android SDK em `~/android-sdk` e JDK 21 em `~/jdk-21` (o Java do sistema não tem `javac`). Rode
+  `JAVA_HOME=$HOME/jdk-21 PATH=$HOME/jdk-21/bin:$PATH bash mobile/scripts/gerar_apk.sh`.
 - Testes nesta VPS: o `.env` do root quebra `load_dotenv`, então rode o pytest numa cópia sem o `.env`.
 - Não existe: recuperação de senha pelo cliente (só a CLI `redefinir-senha`) nem alertas por bairro.
   Os alertas por bairro (polígono do INMET mais modelos) foram sugeridos como próximo passo.
