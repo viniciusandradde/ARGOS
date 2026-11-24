@@ -169,3 +169,7 @@ Resumo completo em `memory/exports/2026-11-04-monte-carlo-dourados.md`.
 - O usuário confirmou a captura do QR no piloto 1.2.1. O portal de MS respondeu HTTP 301 ao endereço HTTPS sem barra final, com destino em HTTP. A versão 1.2.2 envia a consulta diretamente a `https://www.dfe.ms.gov.br/nfce/qrcode/` e preserva os parâmetros do QR.
 - Em testes com a consulta pública ao vivo, a tela do app exibiu os produtos e permitiu registrar duas notas em um perfil de teste. As quantidades e os totais conferidos foram 1 item de R$ 200,03 e 81 itens de R$ 780,91. Ver [captura](../docs/mobile/consulta-sefaz-ms.png).
 - O APK de teste 1.2.2 (versionCode 10202) atualiza o piloto 1.2.1. Fica pendente a confirmação com a nota específica do usuário.
+
+## Proposta de compra mensal em Dourados · 24/11/2026
+
+Planejamento de baixa por produto, pesquisa nas notas e botão **Gerar lista do mês** com cotação por filial. O piloto proposto cobre duas filiais e 20 produtos. As fontes pesquisadas e os critérios de cobertura, vigência e comparação estão na [proposta](../docs/mobile/PROPOSTA-COMPRA-DO-MES.md).
