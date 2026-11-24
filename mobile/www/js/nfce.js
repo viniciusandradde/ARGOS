@@ -28,9 +28,10 @@ const Nfce = (() => {
     if (!chave.startsWith("50") || (p ? p[2] : url.searchParams.get("tpAmb")) !== "1") {
       throw new Error("Use um QR Code de NFC-e de produção emitida em MS.");
     }
-    url.protocol = "https:";
-    url.hash = "";
-    return { url: url.href.replace(/\|/g, "%7C"), chave };
+    // The printed path without its final slash redirects to HTTP on the MS portal.
+    // Keep the signed query intact, including plus signs and already escaped characters.
+    const destino = "https://www.dfe.ms.gov.br/nfce/qrcode/" + url.search.replace(/\|/g, "%7C");
+    return { url: destino, chave };
   }
 
   function texto(no, seletor) {
@@ -106,20 +107,25 @@ const Nfce = (() => {
 
   async function buscar(valor) {
     const { url, chave } = consulta(valor);
-    let corpo;
+    let corpo, status;
+    const cap = window.Capacitor;
     try {
-      const cap = window.Capacitor;
       if (cap?.isNativePlatform()) {
         const r = await cap.Plugins.CapacitorHttp.get({ url, responseType: "text", connectTimeout: 12000, readTimeout: 18000 });
-        if (r.status !== 200) throw new Error();
+        status = r.status;
         corpo = r.data;
       } else {
         const r = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(20000) });
-        if (!r.ok) throw new Error();
+        status = r.status;
         corpo = await r.text();
       }
     } catch {
-      throw new Error("A consulta à SEFAZ falhou. Tente no app Android ou importe o XML.");
+      throw new Error(cap?.isNativePlatform()
+        ? "Não foi possível conectar à SEFAZ-MS. Confira sua conexão e toque em Consultar nota para tentar novamente."
+        : "A consulta à SEFAZ-MS falhou no navegador. Tente no app Android ou importe o XML.");
+    }
+    if (status !== 200) {
+      throw new Error("A SEFAZ-MS respondeu com HTTP " + status + ". Tente consultar a nota novamente ou importe o XML.");
     }
     return html(corpo, chave);
   }

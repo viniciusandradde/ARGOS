@@ -8,10 +8,26 @@ const chave = "50261100000000000100650010000000011000000000";
 test("o QR usa somente o portal autorizado, por HTTPS, e confere modelo, ambiente e dígito", () => {
   const base = "http://www.dfe.ms.gov.br/nfce/qrcode?p=";
   assert.equal(N.consulta(base + chave + "%7C3%7C1").chave, chave);
-  assert.equal(N.consulta(base + chave + "|3|1").url, base.replace("http:", "https:") + chave + "%7C3%7C1");
+  assert.equal(N.consulta(base + chave + "|3|1").url, "https://www.dfe.ms.gov.br/nfce/qrcode/?p=" + chave + "%7C3%7C1");
   for (const url of [base + chave + "|3|2", base.replace("ms.gov.br", "ms.gov.br.example") + chave,
     base + chave.slice(0, -1) + "1|3|1", base + chave.replace("6500", "5500") + "|3|1"]) {
     assert.throws(() => N.consulta(url));
+  }
+});
+
+test("normaliza o endereço impresso sem alterar os parâmetros da NFC-e", () => {
+  const destino = "https://www.dfe.ms.gov.br/nfce/qrcode/?";
+  const consultas = [
+    ["p=" + chave + "|2|1|1|ABCDEF", "p=" + chave + "%7C2%7C1%7C1%7CABCDEF"],
+    ["p=" + chave + "%7C3%7C1", "p=" + chave + "%7C3%7C1"],
+    ["chNFe=" + chave + "&tpAmb=1&digVal=a%2Bb%2Fc%3D", "chNFe=" + chave + "&tpAmb=1&digVal=a%2Bb%2Fc%3D"],
+  ];
+  for (const origem of ["http://dfe.ms.gov.br/nfce/qrcode?", "https://www.dfe.ms.gov.br/NFCe/QRCode?", destino]) {
+    for (const [entrada, esperada] of consultas) {
+      const qr = N.consulta(origem + entrada + "#fragmento");
+      assert.deepEqual(qr, { url: destino + esperada, chave });
+      assert.deepEqual(N.consulta(qr.url), qr);
+    }
   }
 });
 

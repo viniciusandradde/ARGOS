@@ -163,3 +163,9 @@ Resumo completo em `memory/exports/2026-11-04-monte-carlo-dourados.md`.
 - O código lido segue para a consulta da SEFAZ-MS. Se o portal falhar, o aplicativo informa que a captura funcionou e mantém o link válido para nova tentativa.
 - O APK em `mobile/releases/teste-compras/` tem o mesmo pacote e certificado do piloto 1.2.0, com versionCode 10201. O Android aceita a atualização por cima da versão de teste anterior.
 - Build Android, 14 testes Node, 6 cenários de navegador e CI Python passaram. O decodificador ZXing leu o QR de teste; a câmera do Google em um aparelho físico ainda precisa de validação.
+
+## Consulta da NFC-e no Android · 24/11/2026
+
+- O usuário confirmou a captura do QR no piloto 1.2.1. O portal de MS respondeu HTTP 301 ao endereço HTTPS sem barra final, com destino em HTTP. A versão 1.2.2 envia a consulta diretamente a `https://www.dfe.ms.gov.br/nfce/qrcode/` e preserva os parâmetros do QR.
+- Em testes com a consulta pública ao vivo, a tela do app exibiu os produtos e permitiu registrar duas notas em um perfil de teste. As quantidades e os totais conferidos foram 1 item de R$ 200,03 e 81 itens de R$ 780,91. Ver [captura](../docs/mobile/consulta-sefaz-ms.png).
+- O APK de teste 1.2.2 (versionCode 10202) atualiza o piloto 1.2.1. Fica pendente a confirmação com a nota específica do usuário.

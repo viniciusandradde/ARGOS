@@ -9,6 +9,8 @@ const qr = readFileSync(arquivo("qr-ms.png")).toString("base64");
 const chave = "50261100000000000100650010000000011000000000";
 const link = "https://www.dfe.ms.gov.br/nfce/qrcode?p=" + chave + "|3|1";
 
+const consultaOficial = "https://www.dfe.ms.gov.br/nfce/qrcode/?p=" + chave + "%7C3%7C1";
+
 test.beforeEach(async ({ context, page }) => {
   await context.route("**/*", route => {
     if (new URL(route.request().url()).hostname === "127.0.0.1") return route.continue();
@@ -96,7 +98,7 @@ test("duas confirmações simultâneas geram somente uma entrada de estoque", as
 });
 
 test("Android recebe o QR do leitor nativo após retomar e consulta a SEFAZ", async ({ page }) => {
-  await page.evaluate(({ link, html }) => {
+  await page.evaluate(({ link, consultaOficial, html }) => {
     window.Capacitor = {
       getPlatform: () => "android", isNativePlatform: () => true,
       Plugins: {
@@ -106,12 +108,12 @@ test("Android recebe o QR do leitor nativo após retomar e consulta a SEFAZ", as
           return { valor: link };
         } },
         CapacitorHttp: { get: async ({ url }) => {
-          if (url !== link.replaceAll("|", "%7C")) throw new Error("Endereço inesperado.");
+          if (url !== consultaOficial) throw new Error("Endereço inesperado.");
           return { status: 200, data: html };
         } },
       },
     };
-  }, { link, html });
+  }, { link, consultaOficial, html });
   await page.locator("#cp-scan").click();
   await expect(page.locator("#cp-revisao")).toContainText("Mercado de demonstração");
   await expect(page.locator("#cp-camera")).toBeHidden();
@@ -132,9 +134,9 @@ test("cancelar o scanner permite tentar novamente e uma falha na SEFAZ preserva 
   await page.locator("#cp-scan").click();
   await expect(page.locator("#cp-status")).toContainText("cancelada");
   await page.locator("#cp-scan").click();
-  await expect(page.locator("#cp-status")).toContainText("QR Code lido. A consulta à SEFAZ falhou");
+  await expect(page.locator("#cp-status")).toContainText("QR Code lido. A SEFAZ-MS respondeu com HTTP 503");
   await expect(page.locator("#cp-link")).toBeVisible();
-  await expect(page.locator("#cp-link")).toHaveValue(link.replaceAll("|", "%7C"));
+  await expect(page.locator("#cp-link")).toHaveValue(consultaOficial);
   await expect(page.locator("#cp-scan")).toBeEnabled();
 });
 

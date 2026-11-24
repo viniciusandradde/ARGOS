@@ -91,7 +91,7 @@ function iniciarCompras({ $, el, toast }) {
       return el("label", {}, item.nome + " · " + numero(item.quantidade) + " " + un + " · " + moeda(item.total), select);
     });
     $("cp-previa").replaceChildren(el("h3", {}, nota.mercado || "NFC-e"),
-      el("p", {}, data(nota.data) + " · " + nota.produtos.length + " itens · Total da nota " + moeda(nota.total)),
+      el("p", {}, data(nota.data) + " · " + nota.produtos.length + (nota.produtos.length === 1 ? " item" : " itens") + " · Total da nota " + moeda(nota.total)),
       el("p", {}, "Confira os itens e escolha o produto correspondente da sua lista."), ...campos);
     $("cp-revisao").hidden = false;
     $("cp-alternativas").open = false;
