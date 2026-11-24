@@ -1,6 +1,6 @@
 # Proposta para a compra do mês em Dourados
 
-Proposta de produto para o ARGOS Android, baseada no piloto 1.2.2. Pesquisa de fontes em 24/11/2026.
+Proposta de produto para o ARGOS Android, baseada no piloto 1.2.2. Pesquisa de fontes em 24/11/2026. A alternativa web prevê uma entrada exclusiva para Compras e estoque compartilhado entre os aparelhos. [Proposta para o GitHub Pages](PROPOSTA-COMPRAS-PAGES.md)
 
 A primeira tela de **Compras** daria acesso direto a **Dar baixa**, **Buscar nas minhas notas** e **Gerar lista do mês**. O piloto já importa NFC-e, registra consumo, guarda histórico e calcula faltas no aparelho. A melhoria transforma esses recursos em um ciclo que liga a despensa, a cotação por filial e o valor efetivamente pago. [Fluxo atual](COMPRAS.md)
 
