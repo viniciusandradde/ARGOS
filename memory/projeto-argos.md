@@ -156,3 +156,10 @@ Resumo completo em `memory/exports/2026-11-04-monte-carlo-dourados.md`.
 - O piloto instalável está em `mobile/releases/teste-compras/`, com assinatura de depuração, nome e pacote próprios. As capturas com dados fictícios e o roteiro estão no [plano de implantação](../docs/mobile/COMPRAS.md).
 - Verificação em 24/11: 14 testes Node, 3 cenários de navegador, 2.470 testes Python e compilação Android de depuração. Uma consulta pública da SEFAZ-MS retornou 81 itens e R$ 780,91. A câmera foi testada com um QR reproduzido em vídeo no Chromium.
 - Faltam o piloto com nota impressa em aparelho físico e o APK oficial assinado com o keystore de distribuição. O piloto e o aplicativo oficial têm estoques independentes.
+
+## Correção do scanner de compras · 24/11/2026
+
+- O piloto 1.2.1 abre o Google Code Scanner no Android com zoom automático. O ZXing embarcado atende aparelhos em que o serviço do Google está indisponível. O usuário também pode selecionar a foto do QR.
+- O código lido segue para a consulta da SEFAZ-MS. Se o portal falhar, o aplicativo informa que a captura funcionou e mantém o link válido para nova tentativa.
+- O APK em `mobile/releases/teste-compras/` tem o mesmo pacote e certificado do piloto 1.2.0, com versionCode 10201. O Android aceita a atualização por cima da versão de teste anterior.
+- Build Android, 14 testes Node, 6 cenários de navegador e CI Python passaram. O decodificador ZXing leu o QR de teste; a câmera do Google em um aparelho físico ainda precisa de validação.

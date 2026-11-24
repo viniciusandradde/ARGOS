@@ -8,7 +8,7 @@ const chave = "50261100000000000100650010000000011000000000";
 test("o QR usa somente o portal autorizado, por HTTPS, e confere modelo, ambiente e dígito", () => {
   const base = "http://www.dfe.ms.gov.br/nfce/qrcode?p=";
   assert.equal(N.consulta(base + chave + "%7C3%7C1").chave, chave);
-  assert.match(N.consulta(base + chave + "|3|1").url, /^https:/);
+  assert.equal(N.consulta(base + chave + "|3|1").url, base.replace("http:", "https:") + chave + "%7C3%7C1");
   for (const url of [base + chave + "|3|2", base.replace("ms.gov.br", "ms.gov.br.example") + chave,
     base + chave.slice(0, -1) + "1|3|1", base + chave.replace("6500", "5500") + "|3|1"]) {
     assert.throws(() => N.consulta(url));

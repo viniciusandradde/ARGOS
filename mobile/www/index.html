@@ -107,7 +107,8 @@
         <video id="cp-video" playsinline muted></video>
         <button id="cp-parar" type="button">Fechar câmera</button>
       </div>
-      <details id="cp-alternativas"><summary>Usar link ou arquivo XML</summary>
+      <details id="cp-alternativas"><summary>Usar foto, link ou arquivo XML</summary>
+        <label class="cfg">Foto do QR Code<input id="cp-foto" type="file" accept="image/*"></label>
         <form id="cp-link-form" class="cfg"><label for="cp-link">Link do QR Code (MS)</label>
           <input id="cp-link" type="url" placeholder="https://www.dfe.ms.gov.br/…" required>
           <button type="submit">Consultar nota</button></form>

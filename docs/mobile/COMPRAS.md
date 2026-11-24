@@ -2,15 +2,15 @@
 
 A aba **Compras** guarda as notas e o estoque no aparelho. Abra a aba antes de ir ao mercado para ver os produtos que faltam. A consulta pelo QR Code precisa de internet. A importação de XML, o histórico, a lista e o estoque funcionam offline.
 
-**[Baixar o APK de teste para Android](../../mobile/releases/teste-compras/argos-compras-1.2.0.apk?raw=true)** · [SHA-256](../../mobile/releases/teste-compras/argos-compras-1.2.0.apk.sha256)
+**[Baixar o APK de teste para Android](../../mobile/releases/teste-compras/argos-compras-1.2.1.apk?raw=true)** · [SHA-256](../../mobile/releases/teste-compras/argos-compras-1.2.1.apk.sha256)
 
-O Android identifica o piloto como **ARGOS Compras (teste)**, com o pacote `br.com.vsa.argos.comprasteste`. Ele pode ser instalado ao lado do ARGOS oficial e guarda as compras em um espaço separado. A atualização oficial 1.2.0 depende da assinatura de distribuição.
+O Android identifica o piloto como **ARGOS Compras (teste)**, com o pacote `br.com.vsa.argos.comprasteste`. Para quem já usa o piloto 1.2.0, abra o novo APK e toque em **Atualizar**. O Android mantém o estoque e o histórico do piloto. Ele também pode ser instalado ao lado do ARGOS oficial. A atualização oficial 1.2.1 depende da assinatura de distribuição.
 
 ![A próxima compra e o estoque com dados de demonstração](compras.png)
 
 ## Da nota para o estoque
 
-1. Toque em **Escanear QR Code da nota** e permita o acesso à câmera. No piloto, a consulta automática usa o portal de produção da SEFAZ-MS. Em **Usar link ou arquivo XML** você também pode colar o link ou abrir o XML de uma NFC-e modelo 65 de qualquer UF.
+1. Toque em **Escanear QR Code da nota** e enquadre o código inteiro. No Android, o leitor do Google ajusta o zoom e devolve o link ao ARGOS. Se o serviço estiver indisponível, o aplicativo abre o leitor de câmera embarcado. Para uma foto já tirada ou um print, toque em **Usar foto, link ou arquivo XML → Foto do QR Code**. Após a leitura, o ARGOS consulta a SEFAZ-MS. Se a consulta falhar, o link válido fica preenchido para tentar novamente. O XML permite importar uma NFC-e modelo 65 de qualquer UF.
 2. Confira o mercado, a data, o total e os produtos. Se a descrição do cupom for abreviada, escolha o produto correspondente da sua lista com a mesma unidade. O ARGOS lembra a associação em novas notas do mesmo emitente.
 3. Toque em **Registrar compra e atualizar estoque**. Uma única transação salva a nota, dá entrada nos produtos e abate o que foi comprado da lista geral. A chave de 44 dígitos impede a duplicação. Uma consulta incompleta permite tentar novamente ou usar o XML.
 4. Abra uma compra no **Histórico** para ver as linhas originais, quantidades, preços unitários, totais e a comparação com o que estava previsto naquele momento. O total da nota é o informado pelo documento, inclusive quando há desconto.
@@ -37,11 +37,11 @@ O catálogo e o histórico ficam em IndexedDB. A aba trata o XML e o HTML da con
 | Nottei | Leitura da NFC-e, histórico por produto e comparação com o planejado. [Descrição do aplicativo](https://apps.apple.com/br/app/nottei/id6812775844) | Conferência das linhas antes da entrada e registro da comparação no histórico. |
 | Grocy | Registra compras e usa níveis mínimos por produto para orientar a lista. [Recursos de estoque e compras](https://grocy.info/) | Padrão mensal por produto, saldo real, baixa de consumo e sugestão de reposição. |
 
-O QR Code aponta para a consulta estadual. A integração de MS usa o endereço oficial, verifica a chave devolvida e confere a contagem de produtos da página. O leitor de câmera usa jsQR 1.4.0 embarcado em `mobile/www/vendor/jsqr/`. [SEFAZ-MS](https://www.sefaz.ms.gov.br/documentos-fiscais-eletronicos/nfc-e/) · [Manual do DANFE NFC-e e QR Code](https://www.nfe.fazenda.gov.br/PORTAl/exibirArquivo.aspx?AspxAutoDetectCookieSupport=1&conteudo=k%2FIuuaW4YiY%3D)
+O QR Code aponta para a consulta estadual. A integração de MS usa o endereço oficial, verifica a chave devolvida e confere a contagem de produtos da página. O Android usa o Google Code Scanner com zoom automático e traz o ZXing como alternativa nativa. O navegador e a leitura de fotos usam jsQR 1.4.0. [Google Code Scanner](https://developers.google.com/ml-kit/vision/barcode-scanning/code-scanner) · [ZXing Android Embedded](https://github.com/journeyapps/zxing-android-embedded). [SEFAZ-MS](https://www.sefaz.ms.gov.br/documentos-fiscais-eletronicos/nfc-e/) · [Manual do DANFE NFC-e e QR Code](https://www.nfe.fazenda.gov.br/PORTAl/exibirArquivo.aspx?AspxAutoDetectCookieSupport=1&conteudo=k%2FIuuaW4YiY%3D)
 
 ## Implantação
 
 1. **Verificação em desenvolvimento.** Em `mobile/`, rode `npm ci`, `npm test`, `npx playwright install chromium` e `npm run test:compras`. Para usar um Chromium instalado, defina `CHROMIUM_PATH`. Os testes do navegador usam Python 3 para servir os arquivos locais e notas fictícias. O importador também foi conferido com uma consulta pública de MS de 81 itens e total de R$ 780,91.
 2. **Piloto em Dourados.** No APK de teste, leia uma nota física, confira todas as linhas e o total com o cupom, vincule um item à lista, registre e tente ler a mesma nota novamente. Feche e reabra o app, registre um consumo e confira a sugestão. Experimente também a câmera sem permissão e a importação de XML no modo avião. O piloto tem armazenamento próprio. Use dados de teste.
-3. **Atualização oficial.** Depois do piloto, gere a versão 1.2.0 no ambiente com o keystore original usando `bash mobile/scripts/gerar_apk.sh`. Confira o certificado e o hash, instale por cima de uma versão anterior em um aparelho de validação e então disponibilize o APK assinado. Para corrigir uma versão distribuída, entregue uma atualização com a mesma assinatura e um `versionCode` maior, preservando os dados locais. [Guia Android](ANDROID.md)
+3. **Atualização oficial.** Depois do piloto, gere a versão 1.2.1 no ambiente com o keystore original usando `bash mobile/scripts/gerar_apk.sh`. Confira o certificado e o hash, instale por cima de uma versão anterior em um aparelho de validação e então disponibilize o APK assinado. Para corrigir uma versão distribuída, entregue uma atualização com a mesma assinatura e um `versionCode` maior, preservando os dados locais. [Guia Android](ANDROID.md)
 4. **Outros estados.** Para habilitar o QR de uma nova UF, confira o endereço de produção estadual e valide o formato em documentos representativos, inclusive descontos, unidades fracionadas e resposta sem itens. O XML já permite importar os itens pelo formato nacional.

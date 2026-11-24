@@ -67,7 +67,7 @@ function iniciarCompras({ $, el, toast }) {
     render();
   }
   function entrada(habilitar) {
-    for (const id of ["cp-scan", "cp-link", "cp-xml"]) $(id).disabled = !habilitar;
+    for (const id of ["cp-scan", "cp-foto", "cp-link", "cp-xml"]) $(id).disabled = !habilitar;
     $("cp-link-form").querySelector("button").disabled = !habilitar;
   }
   function limpar() {
@@ -99,20 +99,70 @@ function iniciarCompras({ $, el, toast }) {
     status("Nota pronta para conferência.");
   }
 
-  async function importar(carregar) {
+  async function importar(carregar, qrLido = false) {
     const tentativa = ++leitura;
-    pararCamera(); entrada(false); status("Lendo os produtos da nota…");
+    pararCamera(); entrada(false);
+    status(qrLido ? "QR Code lido. Consultando a nota na SEFAZ…" : "Lendo os produtos da nota…");
     try {
       const nota = await carregar();
       await atualizar();
       if (leitura === tentativa) previa(nota);
     } catch (e) {
-      if (leitura === tentativa) status(e.message);
+      if (leitura === tentativa) {
+        status((qrLido ? "QR Code lido. " : "") + e.message);
+        if (qrLido) $("cp-alternativas").open = true;
+      }
     } finally {
       if (leitura === tentativa && !rascunho) entrada(true);
       $("cp-xml").value = "";
     }
   }
+
+  function consultarQr(valor) {
+    return importar(() => {
+      const { url } = Nfce.consulta(valor);
+      $("cp-link").value = url;
+      return Nfce.buscar(url);
+    }, true);
+  }
+
+  async function capturarQr(obterValor, mensagem) {
+    const tentativa = ++leitura;
+    pararCamera(); entrada(false); status(mensagem);
+    try {
+      const valor = await obterValor();
+      if (tentativa !== leitura) return;
+      if (valor) await consultarQr(valor);
+      else status("Leitura cancelada.");
+    } catch (e) {
+      if (tentativa === leitura) { status(e.message); $("cp-alternativas").open = true; }
+    } finally {
+      if (tentativa === leitura && !rascunho) entrada(true);
+    }
+  }
+
+  $("cp-foto").addEventListener("change", () => {
+    const foto = $("cp-foto").files[0];
+    $("cp-foto").value = "";
+    if (!foto) return;
+    capturarQr(async () => {
+      let imagem;
+      try { imagem = await createImageBitmap(foto); }
+      catch { throw new Error("Não foi possível abrir a foto. Escolha uma imagem JPEG ou PNG."); }
+      try {
+        const canvas = document.createElement("canvas");
+        const escala = Math.min(1, 2400 / Math.max(imagem.width, imagem.height));
+        canvas.width = Math.max(1, Math.round(imagem.width * escala));
+        canvas.height = Math.max(1, Math.round(imagem.height * escala));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(imagem, 0, 0, canvas.width, canvas.height);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qr = jsQR(pixels.data, pixels.width, pixels.height);
+        if (qr) return qr.data;
+        throw new Error("QR Code não encontrado. Escolha uma foto nítida com o código inteiro.");
+      } finally { imagem.close(); }
+    }, "Procurando o QR Code na foto…");
+  });
 
   $("cp-link-form").addEventListener("submit", e => {
     e.preventDefault(); importar(() => Nfce.buscar($("cp-link").value));
@@ -152,6 +202,14 @@ function iniciarCompras({ $, el, toast }) {
     stream = null; $("cp-video").srcObject = null; $("cp-camera").hidden = true;
   }
   $("cp-scan").addEventListener("click", async () => {
+    const cap = window.Capacitor;
+    if (cap?.getPlatform?.() === "android") {
+      await capturarQr(async () => {
+        const resultado = await cap.Plugins.LeitorQr.escanear();
+        return resultado?.valor;
+      }, "Abrindo o leitor de QR Code…");
+      return;
+    }
     pararCamera();
     const atual = sessao;
     status("Aponte a câmera para o QR Code da NFC-e.");
@@ -172,7 +230,7 @@ function iniciarCompras({ $, el, toast }) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const qr = jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: "dontInvert" });
-          if (qr) { importar(() => Nfce.buscar(qr.data)); return; }
+          if (qr) { consultarQr(qr.data); return; }
         }
         timer = setTimeout(quadro, 140);
       }

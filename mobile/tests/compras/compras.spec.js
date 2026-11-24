@@ -94,3 +94,54 @@ test("duas confirmações simultâneas geram somente uma entrada de estoque", as
   expect(estado.notas).toHaveLength(1);
   expect(Object.values(estado.cat.produtos).map(p => p.saldo).sort()).toEqual([1.25, 2]);
 });
+
+test("Android recebe o QR do leitor nativo após retomar e consulta a SEFAZ", async ({ page }) => {
+  await page.evaluate(({ link, html }) => {
+    window.Capacitor = {
+      getPlatform: () => "android", isNativePlatform: () => true,
+      Plugins: {
+        LeitorQr: { escanear: async () => {
+          window.dispatchEvent(new Event("pagehide"));
+          document.dispatchEvent(new Event("visibilitychange"));
+          return { valor: link };
+        } },
+        CapacitorHttp: { get: async ({ url }) => {
+          if (url !== link.replaceAll("|", "%7C")) throw new Error("Endereço inesperado.");
+          return { status: 200, data: html };
+        } },
+      },
+    };
+  }, { link, html });
+  await page.locator("#cp-scan").click();
+  await expect(page.locator("#cp-revisao")).toContainText("Mercado de demonstração");
+  await expect(page.locator("#cp-camera")).toBeHidden();
+  await expect(page.locator("#cp-historico")).toContainText("Nenhuma nota");
+});
+
+test("cancelar o scanner permite tentar novamente e uma falha na SEFAZ preserva o link lido", async ({ page }) => {
+  await page.evaluate(link => {
+    let leituras = 0;
+    window.Capacitor = {
+      getPlatform: () => "android", isNativePlatform: () => true,
+      Plugins: {
+        LeitorQr: { escanear: async () => ++leituras === 1 ? undefined : { valor: link } },
+        CapacitorHttp: { get: async () => ({ status: 503 }) },
+      },
+    };
+  }, link);
+  await page.locator("#cp-scan").click();
+  await expect(page.locator("#cp-status")).toContainText("cancelada");
+  await page.locator("#cp-scan").click();
+  await expect(page.locator("#cp-status")).toContainText("QR Code lido. A consulta à SEFAZ falhou");
+  await expect(page.locator("#cp-link")).toBeVisible();
+  await expect(page.locator("#cp-link")).toHaveValue(link.replaceAll("|", "%7C"));
+  await expect(page.locator("#cp-scan")).toBeEnabled();
+});
+
+test("lê a foto do QR da galeria mesmo sem acesso à câmera", async ({ page, context }) => {
+  await context.route("https://www.dfe.ms.gov.br/**", r => r.fulfill({ contentType: "text/html", body: html }));
+  await page.locator("#cp-alternativas summary").click();
+  await page.locator("#cp-foto").setInputFiles(arquivo("qr-ms.png"));
+  await expect(page.locator("#cp-revisao")).toContainText("2 itens");
+  await expect(page.locator("#cp-historico")).toContainText("Nenhuma nota");
+});

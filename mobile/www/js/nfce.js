@@ -30,7 +30,7 @@ const Nfce = (() => {
     }
     url.protocol = "https:";
     url.hash = "";
-    return { url: url.href, chave };
+    return { url: url.href.replace(/\|/g, "%7C"), chave };
   }
 
   function texto(no, seletor) {

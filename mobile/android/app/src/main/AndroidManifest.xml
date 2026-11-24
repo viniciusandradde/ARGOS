@@ -26,6 +26,11 @@
 
         </activity>
 
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />
+        <activity android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:exported="false" android:screenOrientation="fullSensor"
+            tools:replace="android:screenOrientation" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
