@@ -177,3 +177,5 @@ Planejamento de baixa por produto, pesquisa nas notas e botão **Gerar lista do 
 ## Alternativa web para Compras · 24/11/2026
 
 Proposta de duas entradas web, acesso individual por casa, estoque compartilhado e consulta privada à SEFAZ-MS com retomada de notas em contingência. O repositório informou Pages desativado na análise. O próximo marco proposto é validar a mesma compra e baixa em dois aparelhos. [Análise de implantação](../docs/mobile/PROPOSTA-COMPRAS-PAGES.md)
+
+A direção visual proposta para Compras é uma página branca em Astro, voltada prioritariamente às mulheres que vão utilizá-la no cotidiano. O painel verde e seus recursos ficam atrás do acesso exclusivo do proprietário no servidor. A [prévia para celular](../docs/mobile/compras-web-previa.png) usa compras fictícias.
