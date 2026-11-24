@@ -8,3 +8,5 @@ android/capacitor-cordova-android-plugins/build/
 *.keystore.local
 assinatura/*.jks
 assinatura/*.properties
+test-results/
+android/.kotlin/

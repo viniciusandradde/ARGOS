@@ -97,6 +97,49 @@
     </div></section>
 </main>
 
+<!-- ============ COMPRAS ============ -->
+<main id="v-compras" class="view hidden">
+  <section class="p wide"><h2>[ PRÓXIMA COMPRA ] <small id="cp-contagem"></small></h2>
+    <div class="body cfg">
+      <div id="cp-faltas"></div>
+      <button id="cp-scan" class="cp-principal" type="button">Escanear QR Code da nota</button>
+      <div id="cp-camera" hidden>
+        <video id="cp-video" playsinline muted></video>
+        <button id="cp-parar" type="button">Fechar câmera</button>
+      </div>
+      <details id="cp-alternativas"><summary>Usar link ou arquivo XML</summary>
+        <form id="cp-link-form" class="cfg"><label for="cp-link">Link do QR Code (MS)</label>
+          <input id="cp-link" type="url" placeholder="https://www.dfe.ms.gov.br/…" required>
+          <button type="submit">Consultar nota</button></form>
+        <label class="cfg">Arquivo XML da NFC-e<input id="cp-xml" type="file" accept=".xml,text/xml,application/xml"></label>
+      </details>
+      <div id="cp-status" role="status" aria-live="polite"></div>
+    </div></section>
+  <section id="cp-revisao" class="p wide" hidden><h2>[ CONFERIR NOTA ]</h2>
+    <div class="body cfg"><div id="cp-previa"></div>
+      <button id="cp-confirmar" class="cp-principal" type="button">Registrar compra e atualizar estoque</button>
+      <button id="cp-cancelar" type="button">Descartar leitura</button></div></section>
+  <section class="p"><h2>[ LISTA GERAL E ESTOQUE ]</h2>
+    <div class="body cfg"><div id="cp-catalogo"></div>
+      <form id="cp-ajuste" class="cfg">
+        <label>Produto<input id="cp-nome" list="cp-nomes" maxlength="160" required placeholder="Ex. Arroz 5 kg"></label>
+        <datalist id="cp-nomes"></datalist>
+        <div class="row"><label>Unidade<input id="cp-un" list="cp-unidades" value="UN" maxlength="12" required></label>
+          <label>Quantidade<input id="cp-qtd" inputmode="decimal" placeholder="0" required></label></div>
+        <datalist id="cp-unidades"><option value="UN"></option><option value="KG"></option><option value="L"></option></datalist>
+        <label>Ação<select id="cp-acao">
+          <option value="avulso">Definir pendência da lista geral</option>
+          <option value="meta">Definir quantidade padrão do mês</option>
+          <option value="saldo">Informar estoque atual</option>
+          <option value="consumo">Registrar consumo</option>
+        </select></label>
+        <button type="submit">Salvar quantidade</button>
+      </form></div></section>
+  <section class="p"><h2>[ LISTA PADRÃO DO MÊS ]</h2>
+    <div class="body" id="cp-mensal"></div></section>
+  <section class="p wide"><h2>[ HISTÓRICO DE COMPRAS ]</h2><div class="body" id="cp-historico"></div></section>
+</main>
+
 <!-- ============ CONFIG ============ -->
 <main id="v-config" class="view hidden">
   <section class="p"><h2>[ CIDADES MONITORADAS ] <small>arboviroses · clima · avisos</small></h2>
@@ -157,6 +200,7 @@
   <button type="button" data-v="sala" class="on"><span class="ic">◉</span>SALA</button>
   <button type="button" data-v="clima"><span class="ic">⛈</span>CLIMA</button>
   <button type="button" data-v="feed"><span class="ic">≣</span>FEED <span class="badge hidden" id="badge-feed"></span></button>
+  <button type="button" data-v="compras"><span class="ic">▤</span>COMPRAS</button>
   <button type="button" data-v="config"><span class="ic">⚙</span>CONFIG</button>
 </nav>
 
@@ -164,6 +208,10 @@
 <script src="js/dados.js"></script>
 <script src="js/motor.js"></script>
 <script src="runners/vigia.js"></script>
+<script src="vendor/jsqr/jsQR.js"></script>
+<script src="js/nfce.js"></script>
+<script src="js/compras.js"></script>
+<script src="js/compras-ui.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe50261100000000000100650010000000011000000000" versao="4.00">
+    <ide><mod>65</mod><tpAmb>1</tpAmb><dhEmi>2026-11-20T09:02:11-04:00</dhEmi></ide>
+    <emit><xNome>Mercado de demonstração</xNome></emit>
+    <det nItem="1"><prod><cProd>01</cProd><xProd>ARROZ T1 5KG</xProd><qCom>2.0000</qCom><uCom>UN</uCom><vUnCom>24.50</vUnCom><vProd>49.00</vProd></prod></det>
+    <det nItem="2"><prod><cProd>02</cProd><xProd>Banana prata</xProd><qCom>1.2500</qCom><uCom>KG</uCom><vUnCom>8.00</vUnCom><vProd>10.00</vProd></prod></det>
+    <total><ICMSTot><vNF>57.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>

@@ -10,7 +10,7 @@ continua igual e independente.
 | Coleta | coletor embutido a cada 15 min → `indicadores.db` | motor JS no aparelho (abrir/voltar ao app e a cada N min) |
 | Usuários e cobrança | portal `/conta` + Mercado Pago | não tem (uso pessoal) |
 | Alertas | Telegram e WhatsApp (Evolution) | **notificações locais**: urgentes + boletim da manhã |
-| Dados | SQLite | `localStorage` do app (só no aparelho) |
+| Dados | SQLite | `localStorage` e IndexedDB (compras no aparelho) |
 
 ## Baixar e instalar
 
@@ -37,6 +37,7 @@ sha256sum argos-1.0.0.apk
 - **CLIMA**: radar climático local por município e bairro, igual ao `/clima` da web. Inclui mapa, polígono oficial do INMET,
   riscos em 48 h, METAR, focos de queimada, gráficos e consenso entre modelos. Toque no mapa ou use 📍 para escolher o ponto exato.
 - **FEED**: 48 fontes com filtros e abas por tema.
+- **COMPRAS** registra notas de supermercado, controla estoque e calcula a próxima compra. [Uso e implantação](COMPRAS.md)
 - **CONFIG**: cidades monitoradas, temas (🔔 = alerta), notificações, hora do boletim,
   localidades do IPCA e chave Open-Meteo.
 

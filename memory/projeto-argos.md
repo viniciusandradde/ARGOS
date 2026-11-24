@@ -148,3 +148,11 @@ Resumo completo em `memory/exports/2026-11-04-monte-carlo-dourados.md`.
 - Modelos: tempestade em **Grande Perigo** (cálculo próprio; CAPE de 4.180 J/kg, trovoada e granizo por volta das 13h),
   ventania em Perigo Potencial (56–58 km/h) e calor em Perigo Potencial (sensação de 38 °C em 06/11).
 - METAR SBPP: 33 °C. Nenhum foco de queimada em 50 km.
+
+## Compras no Android · 24/11/2026
+
+- App 1.2.0 com aba Compras. QR e link usam a consulta oficial de MS. O XML da NFC-e modelo 65 funciona offline. A confirmação grava os itens, os vínculos, a comparação e o estoque em IndexedDB, com chave única por nota.
+- A lista geral controla pendências avulsas. O padrão mensal define um saldo desejado por produto e unidade. O consumo e as entradas recalculam a sugestão da próxima compra.
+- O piloto instalável está em `mobile/releases/teste-compras/`, com assinatura de depuração, nome e pacote próprios. As capturas com dados fictícios e o roteiro estão no [plano de implantação](../docs/mobile/COMPRAS.md).
+- Verificação em 24/11: 14 testes Node, 3 cenários de navegador, 2.470 testes Python e compilação Android de depuração. Uma consulta pública da SEFAZ-MS retornou 81 itens e R$ 780,91. A câmera foi testada com um QR reproduzido em vídeo no Chromium.
+- Faltam o piloto com nota impressa em aparelho físico e o APK oficial assinado com o keystore de distribuição. O piloto e o aplicativo oficial têm estoques independentes.

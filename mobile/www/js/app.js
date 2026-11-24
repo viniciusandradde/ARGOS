@@ -3,7 +3,7 @@
   "use strict";
   const M = window.ArgosMotor, D = window.ARGOS_DADOS;
   const $ = (id) => document.getElementById(id);
-  const VERSAO = "1.1.0";
+  const VERSAO = "1.2.0";
   const URL_APK = "https://github.com/viniciusandradde/ARGOS/raw/ccr-d79070a6-p6sovy/mobile/releases/argos-ultima.apk";
   const CAP = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor : null;
   const P = CAP ? CAP.Plugins : {};
@@ -14,7 +14,7 @@
   const ARBO = { 1: ["green", "■□□□", "VERDE"], 2: ["amber", "■■□□", "AMARELO"], 3: ["amber", "■■■□", "LARANJA"], 4: ["red", "■■■■", "VERMELHO"] };
   const TEMPO = { 0: "céu limpo", 1: "sol", 2: "parc. nublado", 3: "nublado", 45: "neblina", 51: "garoa", 53: "garoa", 61: "chuva fraca",
     63: "chuva", 65: "chuva forte", 80: "pancadas", 81: "pancadas fortes", 82: "pancadas violentas", 95: "trovoadas", 96: "trovoadas c/ granizo", 99: "trovoadas c/ granizo" };
-  const SUB = { sala: "// SALA DE SITUAÇÃO", clima: "// RADAR CLIMÁTICO", feed: "// FEED GLOBAL", config: "// CONFIGURAÇÃO" };
+  const SUB = { sala: "// SALA DE SITUAÇÃO", clima: "// RADAR CLIMÁTICO", feed: "// FEED GLOBAL", compras: "// COMPRAS", config: "// CONFIGURAÇÃO" };
   let dados = null, aba = "feed", view = "sala", restante = 0, coletando = false, mapa = null, camadas = null;
 
   // ---- helpers -----------------------------------------------------------------
@@ -479,13 +479,16 @@
   // ---- Navegação, relógio, inicialização ----------------------------------------
   function mostrar(v) {
     view = v;
-    for (const n of ["sala", "clima", "feed", "config"]) $("v-" + n).classList.toggle("hidden", n !== v);
+    document.body.classList.toggle("em-compras", v === "compras");
+    for (const n of Object.keys(SUB)) $("v-" + n).classList.toggle("hidden", n !== v);
     document.querySelectorAll("nav.bar button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
     $("sub").textContent = SUB[v];
     window.scrollTo(0, 0);
     if (v === "clima") { iniciarMapa(); setTimeout(() => mapa && mapa.invalidateSize(), 60); if (!M.store.get("clima_ultimo")) analisar(); }
+    if (v === "compras") compras.abrir(); else compras.sair();
     if (v === "config") renderConfig();
   }
+  const compras = iniciarCompras({ $, el, toast });
   document.querySelectorAll("nav.bar button").forEach((b) => b.addEventListener("click", () => mostrar(b.dataset.v)));
   $("btn-atualizar").addEventListener("click", () => (view === "clima" ? analisar() : coletar()));
   $("f-aplicar").addEventListener("click", render);
@@ -518,6 +521,6 @@
   $("estado").textContent = ultimo ? "ONLINE · CACHE" : "INICIANDO"; $("led").className = ultimo ? "led" : "led busy";
   prepararNotificacoes().then(sincronizarVigia);
   const inicial = (location.hash || "").replace("#", "");
-  if (["sala", "clima", "feed", "config"].includes(inicial)) mostrar(inicial);
+  if (Object.keys(SUB).includes(inicial)) mostrar(inicial);
   window.ArgosApp = { coletar, analisar, mostrar, vigiarAgora };
 })();

@@ -108,7 +108,7 @@ svg { display: block; } svg text { font-family: inherit; }
 
 /* Bottom navigation */
 nav.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1600; display: grid;
-          grid-template-columns: repeat(4, 1fr); background: rgba(3,8,5,.98); border-top: 1px solid var(--line);
+          grid-template-columns: repeat(5, 1fr); background: rgba(3,8,5,.98); border-top: 1px solid var(--line);
           padding-bottom: var(--safe-bottom); }
 nav.bar button { border: 0; border-radius: 0; background: transparent; color: var(--dim); padding: 8px 2px 10px;
                  min-height: 58px; font-size: 10px; letter-spacing: .1em; display: grid; gap: 2px; justify-items: center; }
@@ -121,3 +121,25 @@ nav.bar .badge { color: #000; background: var(--red); border-radius: 8px; paddin
          box-shadow: 0 0 18px rgba(255,51,85,.35); }
 
 @media (min-width: 900px) { .p.w2 { grid-column: span 2; } #mapa { height: 420px; } .big { font-size: 34px; } }
+
+#v-compras [hidden] { display: none !important; }
+#v-compras label { display: grid; min-width: 0; gap: 4px; }
+#v-compras .row > label { flex: 1; }
+#v-compras input, #v-compras select { width: 100%; min-width: 0; }
+#v-compras summary { cursor: pointer; color: var(--green); padding: 8px 0; }
+#v-compras details form { margin: 4px 0 12px; }
+#v-compras .cp-principal { color: var(--bg); background: var(--green); font-weight: 800; }
+#v-compras .cp-linha { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0;
+  border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+#v-compras .cp-linha strong { flex: none; }
+#cp-status:empty { display: none; }
+#cp-status { color: var(--amber); }
+#cp-video { display: block; width: 100%; max-height: 42vh; background: #000; }
+#cp-historico details + details { border-top: 1px solid var(--line); }
+#cp-revisao label { margin-bottom: 10px; }
+
+body.em-compras header .stat, body.em-compras header .linha2, body.em-compras .ticker { display: none; }
+#cp-revisao { scroll-margin-top: 50px; }
+
+#cp-catalogo { max-height: 45vh; overflow: auto; }
+#cp-catalogo th { position: sticky; top: 0; background: var(--panel); }
