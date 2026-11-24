@@ -172,4 +172,4 @@ Resumo completo em `memory/exports/2026-11-04-monte-carlo-dourados.md`.
 
 ## Proposta de compra mensal em Dourados · 24/11/2026
 
-Planejamento de baixa por produto, pesquisa nas notas e botão **Gerar lista do mês** com cotação por filial. O piloto proposto cobre duas filiais e 20 produtos. As fontes pesquisadas e os critérios de cobertura, vigência e comparação estão na [proposta](../docs/mobile/PROPOSTA-COMPRA-DO-MES.md).
+Planejamento de baixa por produto, pesquisa nas notas e botão **Gerar lista do mês** com cotação por filial. O piloto proposto acompanha 20 produtos. O comparativo mensal fixo reúne Fortaleza Parque Alvorada (Rua Cláudio Goelzer, 1620) e Leve Max da Avenida Guaicurus (nº 500). As duas colunas permanecem visíveis mesmo com preços faltantes. Abevê, Atacadão e Comper são opções adicionais. As fontes locais e os critérios de vigência e cobertura estão na [proposta](../docs/mobile/PROPOSTA-COMPRA-DO-MES.md).
