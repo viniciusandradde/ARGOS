@@ -98,13 +98,13 @@ const FiscalFlow = (() => {
   }
   const listar = () => operar("readonly", s => s.getAll());
 
-  // Envia os itens vencidos. Retorna contagem por estado. Nunca remove sem 2xx.
-  async function processar({ fetchImpl = fetch, agora = Date.now() } = {}) {
+  // Envia os itens vencidos (ou todos os pendentes, com forcar = envio manual). Nunca remove sem 2xx.
+  async function processar({ fetchImpl = fetch, agora = Date.now(), forcar = false } = {}) {
     const cfg = lerConfig();
     const contagem = { enviadas: 0, pendentes: 0, conflitos: 0, rejeitadas: 0, sessao: false };
     if (!cfg.url || !cfg.token) return contagem;
     for (const item of await listar()) {
-      if (item.estado !== "pendente" || item.proxima > agora || contagem.sessao) { if (item.estado === "pendente") contagem.pendentes++; continue; }
+      if (item.estado !== "pendente" || (!forcar && item.proxima > agora) || contagem.sessao) { if (item.estado === "pendente") contagem.pendentes++; continue; }
       let status = 0;
       try {
         const r = await fetchImpl(cfg.url + ROTA, {

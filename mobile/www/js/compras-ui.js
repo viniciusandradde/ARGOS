@@ -243,10 +243,10 @@ function iniciarCompras({ $, el, toast }) {
   });
   // ---- Integração opcional com o FiscalFlow: fila local, reenvio com backoff, sem senha guardada ----
   function estadoFiscalFlow(msg) { $("ff-estado").textContent = msg; }
-  async function sincronizar() {
+  async function sincronizar(manual = false) {
     if (!FiscalFlow.ativo()) return;
     try {
-      const r = await FiscalFlow.processar();
+      const r = await FiscalFlow.processar({ forcar: manual === true });
       const partes = [];
       if (r.enviadas) partes.push(`${r.enviadas} enviada(s)`);
       if (r.pendentes) partes.push(`${r.pendentes} aguardando reenvio`);
@@ -283,7 +283,7 @@ function iniciarCompras({ $, el, toast }) {
     } catch (erro) { estadoFiscalFlow(erro.message); }
     finally { botao.disabled = false; }
   });
-  $("ff-enviar").addEventListener("click", sincronizar);
+  $("ff-enviar").addEventListener("click", () => sincronizar(true));
   $("ff-categoria").addEventListener("change", () => { FiscalFlow.definirCategoria($("ff-categoria").value); mostrarOrcamento(); });
   $("ff-sair").addEventListener("click", () => { FiscalFlow.sair(); estadoFiscalFlow("Desconectado. A fila continua guardada no aparelho."); telaFiscalFlow(); });
   window.addEventListener("online", sincronizar);

@@ -1,0 +1,33 @@
+name: Mobile (compras)
+
+on:
+  push:
+    branches: ["ccr-*", "feat/**"]
+    paths: ["mobile/**", ".github/workflows/mobile.yml"]
+  pull_request:
+    paths: ["mobile/**", ".github/workflows/mobile.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Unit tests
+        run: npm test
+      - name: Browser tests (compras + fila FiscalFlow, servidores simulados)
+        run: |
+          npx playwright install --with-deps chromium-headless-shell
+          npm run test:compras
