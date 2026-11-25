@@ -54,3 +54,9 @@ test("linha de orçamento por categoria, sem diferenciar maiúsculas", () => {
   assert.equal(F.linhaOrcamento(r, "Lazer"), null);
   assert.equal(F.linhaOrcamento(null, "x"), null);
 });
+
+test("destino da nota: workspace válido entra no payload; inválido é ignorado", () => {
+  assert.equal(F.payload(nota, 1, "abcdefghijklmno").workspace_id, "abcdefghijklmno");
+  assert.equal(F.payload(nota, 1, "").workspace_id, undefined);
+  assert.equal(F.payload(nota, 1, "../x").workspace_id, undefined);
+});

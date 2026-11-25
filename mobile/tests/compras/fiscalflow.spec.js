@@ -17,7 +17,14 @@ async function servidor(context, estado) {
     if (url.pathname === "/api/collections/users/auth-with-password") {
       return route.fulfill({ json: { token: "token-ficticio", record: { id: "u1" } } });
     }
+    if (url.pathname === "/api/fiscalflow/workspaces") {
+      return route.fulfill({ json: { items: [
+        { id: "wsfamilia000001", name: "Família Fictícia", kind: "family", role: "editor" },
+        { id: "wsleitura000001", name: "Só leitura", kind: "family", role: "viewer" },
+      ] } });
+    }
     if (url.pathname === "/api/integrations/argos/v1/budget") {
+      (estado.orcamentos ||= []).push(url.search);
       return route.fulfill({ json: { categories: [{ category: "Supermercado", budget_cents: 100000, realized_cents: 0, pending_cents: 0, available_cents: 100000 }] } });
     }
     if (url.pathname === "/api/integrations/argos/v1/purchases") {
@@ -97,4 +104,24 @@ test("conflito fica na fila para revisão; sessão expirada desconecta sem perde
   await expect(page.locator("#ff-estado")).toContainText("sessão expirada");
   await expect(page.locator("#ff-entrar")).toBeVisible();
   expect((await fila(page)).map(i => i.estado).sort()).toEqual(["conflito", "pendente"]);
+});
+
+test("destino da nota: só workspaces com escrita; nota e orçamento seguem o destino escolhido", async ({ page, context }) => {
+  const estado = { resposta: 201, recebidos: [] };
+  await servidor(context, estado);
+  await page.goto("/#compras");
+  await page.locator("#ff-url").fill(BASE);
+  await page.locator("#ff-email").fill("pessoa@exemplo.invalid");
+  await page.locator("#ff-senha").fill("senha-ficticia");
+  await page.locator("#ff-entrar button").click();
+  await expect(page.locator("#ff-destino option")).toHaveText(["Pessoal", "Família Fictícia"]);
+  await page.locator("#ff-destino").selectOption("wsfamilia000001");
+  await expect.poll(() => estado.orcamentos.at(-1)).toContain("workspace=wsfamilia000001");
+  await page.locator("#cp-alternativas summary").click();
+  await page.locator("#cp-xml").setInputFiles({ name: "nota.xml", mimeType: "text/xml", buffer: Buffer.from(xml) });
+  await page.getByRole("button", { name: "Registrar compra e atualizar estoque" }).click();
+  await expect(page.locator("#ff-estado")).toContainText("1 enviada(s)");
+  expect(estado.recebidos[0].corpo.workspace_id).toBe("wsfamilia000001");
+  await page.reload();
+  await expect(page.locator("#ff-destino")).toHaveValue("wsfamilia000001");
 });

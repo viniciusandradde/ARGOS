@@ -256,7 +256,18 @@ function iniciarCompras({ $, el, toast }) {
       estadoFiscalFlow(partes.length ? partes.join(" · ") : "Conectado. Nada pendente.");
     } catch { estadoFiscalFlow("Fila do FiscalFlow indisponível neste aparelho."); }
     telaFiscalFlow();
+    await carregarDestinos();
     mostrarOrcamento();
+  }
+  async function carregarDestinos() {
+    if (!FiscalFlow.ativo()) return;
+    const atual = FiscalFlow.lerConfig().workspace || "";
+    const lista = await FiscalFlow.destinos().catch(() => []);
+    const sel = $("ff-destino");
+    sel.replaceChildren(el("option", { value: "" }, "Pessoal"), ...lista.map(w => el("option", { value: w.id }, w.nome)));
+    // Destino que deixou de estar disponível (papel alterado ou acesso revogado) volta a pessoal.
+    sel.value = lista.some(w => w.id === atual) ? atual : "";
+    if (sel.value !== atual) FiscalFlow.definirDestino("", "");
   }
   async function mostrarOrcamento() {
     if (!FiscalFlow.ativo()) { $("ff-orcamento").textContent = ""; return; }
@@ -270,6 +281,7 @@ function iniciarCompras({ $, el, toast }) {
   function telaFiscalFlow() {
     const on = FiscalFlow.ativo();
     $("ff-entrar").hidden = on; $("ff-enviar").hidden = !on; $("ff-sair").hidden = !on; $("ff-categoria-label").hidden = !on;
+    $("ff-destino-label").hidden = !on;
     if (on) $("ff-categoria").value = FiscalFlow.lerConfig().categoria || "";
     if (!on) { $("ff-url").value = FiscalFlow.lerConfig().url || ""; $("ff-email").value = FiscalFlow.lerConfig().email || ""; }
   }
@@ -284,6 +296,11 @@ function iniciarCompras({ $, el, toast }) {
     finally { botao.disabled = false; }
   });
   $("ff-enviar").addEventListener("click", () => sincronizar(true));
+  $("ff-destino").addEventListener("change", () => {
+    const sel = $("ff-destino");
+    FiscalFlow.definirDestino(sel.value, sel.selectedOptions[0]?.textContent || "");
+    mostrarOrcamento();
+  });
   $("ff-categoria").addEventListener("change", () => { FiscalFlow.definirCategoria($("ff-categoria").value); mostrarOrcamento(); });
   $("ff-sair").addEventListener("click", () => { FiscalFlow.sair(); estadoFiscalFlow("Desconectado. A fila continua guardada no aparelho."); telaFiscalFlow(); });
   window.addEventListener("online", sincronizar);

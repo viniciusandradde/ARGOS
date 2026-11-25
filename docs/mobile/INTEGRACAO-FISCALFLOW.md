@@ -18,6 +18,10 @@ Status (2026-11-25): fila offline implementada no app (`mobile/www/js/fiscalflow
 - Forma de pagamento: o XML da NFC-e é lido em `pag/detPag` (`tPag` 01 dinheiro, 03 crédito, 04 débito, 10–13 vale, 17 Pix, demais
   "outro"; `vTroco` sai do dinheiro; `90` ignorado) e enviada como `payment_methods`. A leitura pela página da SEFAZ não traz pagamento.
 - Orçamento: a seção mostra o disponível do mês para uma categoria (padrão "Supermercado", configurável), lido do FiscalFlow.
+- Destino: "Enviar notas para" lista "Pessoal" e os workspaces do FiscalFlow em que o usuário é proprietário, admin ou editor
+  (ADR-012 do FiscalFlow). O destino é gravado na nota quando ela entra na fila; o orçamento exibido segue o destino. Se o acesso
+  ao workspace for retirado, o app volta para "Pessoal". O FiscalFlow deduplica por workspace + chave fiscal: duas pessoas da
+  família escaneando a mesma nota não geram registro duplicado.
 
 ## Pendências
 Teste Playwright cobrindo a fila; revisão de dados reais em `docs/mobile/COMPRAS.md` e

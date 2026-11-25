@@ -22,7 +22,7 @@ const FiscalFlow = (() => {
   function texto(v, max) { return String(v ?? "").trim().slice(0, max); }
 
   // Monta o payload mínimo a partir da nota registrada em Compras.
-  function payload(nota, revisao = 1) {
+  function payload(nota, revisao = 1, workspaceId = "") {
     if (!/^\d{44}$/.test(nota?.chave || "")) throw new Error("Nota sem chave fiscal válida.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(nota.data || "")) throw new Error("Nota sem data válida.");
     if (!Number.isSafeInteger(nota.total) || nota.total <= 0) throw new Error("Nota sem total válido.");
@@ -35,6 +35,7 @@ const FiscalFlow = (() => {
       merchant: texto(nota.mercado, 200) || "Estabelecimento não identificado", purchase_date: nota.data,
       total_cents: nota.total, currency: "BRL", revision: revisao, items: itens,
       ...(Array.isArray(nota.pagamentos) && nota.pagamentos.length ? { payment_methods: nota.pagamentos.slice(0, 10) } : {}),
+      ...(/^[a-z0-9]{15}$/.test(workspaceId || "") ? { workspace_id: workspaceId } : {}),
     };
   }
 
@@ -88,8 +89,9 @@ const FiscalFlow = (() => {
   }
 
   // Enfileira (ou mantém) a nota; uma nota já na fila não é duplicada.
+  // O destino (pessoal ou workspace) é fixado na nota no momento em que entra na fila.
   async function enfileirar(nota, agora = Date.now()) {
-    const corpo = payload(nota);
+    const corpo = payload(nota, 1, lerConfig().workspace || "");
     return operar("readwrite", s => {
       const g = s.get(nota.chave);
       g.onsuccess = () => { if (!g.result) s.put({ chave: nota.chave, payload: corpo, estado: "pendente", tentativas: 0, proxima: agora }); };
@@ -134,14 +136,25 @@ const FiscalFlow = (() => {
   async function orcamento({ fetchImpl = fetch, data = new Date() } = {}) {
     const cfg = lerConfig();
     if (!cfg.url || !cfg.token) return null;
-    const r = await fetchImpl(`${cfg.url}/api/integrations/argos/v1/budget?year=${data.getFullYear()}&month=${data.getMonth() + 1}`,
+    const ws = cfg.workspace ? `&workspace=${encodeURIComponent(cfg.workspace)}` : "";
+    const r = await fetchImpl(`${cfg.url}/api/integrations/argos/v1/budget?year=${data.getFullYear()}&month=${data.getMonth() + 1}${ws}`,
       { headers: { Authorization: cfg.token }, credentials: "omit" });
     if (r.status === 401 || r.status === 403) { sair(); return null; }
     if (!r.ok) throw new Error("Orçamento indisponível.");
     return linhaOrcamento(await r.json(), cfg.categoria || "Supermercado");
   }
+  // Workspaces onde o usuário pode enviar notas (proprietário, admin ou editor).
+  async function destinos({ fetchImpl = fetch } = {}) {
+    const cfg = lerConfig();
+    if (!cfg.url || !cfg.token) return [];
+    const r = await fetchImpl(`${cfg.url}/api/fiscalflow/workspaces`, { headers: { Authorization: cfg.token }, credentials: "omit" });
+    if (!r.ok) return [];
+    const { items = [] } = await r.json();
+    return items.filter(w => ["owner", "admin", "editor"].includes(w.role)).map(w => ({ id: w.id, nome: texto(w.name, 120) }));
+  }
+  const definirDestino = (id, nome) => salvarConfig({ ...lerConfig(), workspace: /^[a-z0-9]{15}$/.test(id || "") ? id : "", workspaceNome: texto(nome, 120) });
   const definirCategoria = categoria => salvarConfig({ ...lerConfig(), categoria: texto(categoria, 100) || "Supermercado" });
 
-  return { urlValida, payload, resultado, entrar, sair, ativo, lerConfig, enfileirar, listar, processar, linhaOrcamento, orcamento, definirCategoria };
+  return { urlValida, payload, resultado, entrar, sair, ativo, lerConfig, enfileirar, listar, processar, linhaOrcamento, orcamento, definirCategoria, destinos, definirDestino };
 })();
 if (typeof module !== "undefined") module.exports = FiscalFlow;
