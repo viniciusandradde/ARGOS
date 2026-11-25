@@ -1,0 +1,2 @@
+# Integração financeira (proposta)
+Preservar IndexedDB e operação offline. Após confirmar nota, enfileirar evento de compra para API autenticada do FiscalFlow; deduplicar por chave fiscal e workspace. Enviar total em centavos, estabelecimento, data e formas de pagamento quando disponíveis; não enviar dados pessoais ou credenciais no Git. Baixa de consumo não gera despesa. Consultar orçamento disponível por categoria; conciliar compra com cartão sem dupla contagem. API e adaptador ainda não implementados. Homologar com dados fictícios antes da distribuição.
