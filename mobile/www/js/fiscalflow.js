@@ -34,6 +34,7 @@ const FiscalFlow = (() => {
       schema_version: 1, purchase_id: "argos-" + nota.chave, fiscal_key: nota.chave,
       merchant: texto(nota.mercado, 200) || "Estabelecimento não identificado", purchase_date: nota.data,
       total_cents: nota.total, currency: "BRL", revision: revisao, items: itens,
+      ...(Array.isArray(nota.pagamentos) && nota.pagamentos.length ? { payment_methods: nota.pagamentos.slice(0, 10) } : {}),
     };
   }
 
@@ -125,6 +126,22 @@ const FiscalFlow = (() => {
     return contagem;
   }
 
-  return { urlValida, payload, resultado, entrar, sair, ativo, lerConfig, enfileirar, listar, processar };
+  // Orçamento do mês no FiscalFlow para uma categoria (somente leitura). Retorna null sem conexão ou categoria.
+  function linhaOrcamento(resposta, categoria) {
+    const alvo = String(categoria || "").trim().toLocaleLowerCase("pt-BR");
+    return (resposta?.categories || []).find(c => String(c.category).toLocaleLowerCase("pt-BR") === alvo) || null;
+  }
+  async function orcamento({ fetchImpl = fetch, data = new Date() } = {}) {
+    const cfg = lerConfig();
+    if (!cfg.url || !cfg.token) return null;
+    const r = await fetchImpl(`${cfg.url}/api/integrations/argos/v1/budget?year=${data.getFullYear()}&month=${data.getMonth() + 1}`,
+      { headers: { Authorization: cfg.token }, credentials: "omit" });
+    if (r.status === 401 || r.status === 403) { sair(); return null; }
+    if (!r.ok) throw new Error("Orçamento indisponível.");
+    return linhaOrcamento(await r.json(), cfg.categoria || "Supermercado");
+  }
+  const definirCategoria = categoria => salvarConfig({ ...lerConfig(), categoria: texto(categoria, 100) || "Supermercado" });
+
+  return { urlValida, payload, resultado, entrar, sair, ativo, lerConfig, enfileirar, listar, processar, linhaOrcamento, orcamento, definirCategoria };
 })();
 if (typeof module !== "undefined") module.exports = FiscalFlow;

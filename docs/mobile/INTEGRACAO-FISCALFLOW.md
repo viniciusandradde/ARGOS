@@ -15,7 +15,10 @@ Status (2026-11-25): fila offline implementada no app (`mobile/www/js/fiscalflow
   Não envia CPF, XML, URL do QR, dados de cartão. Consumo e baixa de estoque nunca são enviados (não são despesa).
 - O FiscalFlow deduplica por usuário + chave fiscal e concilia com transações/cartões existentes, sem criar despesa duplicada.
 
+- Forma de pagamento: o XML da NFC-e é lido em `pag/detPag` (`tPag` 01 dinheiro, 03 crédito, 04 débito, 10–13 vale, 17 Pix, demais
+  "outro"; `vTroco` sai do dinheiro; `90` ignorado) e enviada como `payment_methods`. A leitura pela página da SEFAZ não traz pagamento.
+- Orçamento: a seção mostra o disponível do mês para uma categoria (padrão "Supermercado", configurável), lido do FiscalFlow.
+
 ## Pendências
-Captura da forma de pagamento (`detPag/tPag`) no parser; consulta ao orçamento disponível (`GET /api/integrations/argos/v1/budget`)
-na tela de compras; teste Playwright cobrindo a fila; revisão de dados reais em `docs/mobile/COMPRAS.md` e
+Teste Playwright cobrindo a fila; revisão de dados reais em `docs/mobile/COMPRAS.md` e
 `docs/mobile/consulta-sefaz-ms.png` antes de novas publicações neste repositório público.

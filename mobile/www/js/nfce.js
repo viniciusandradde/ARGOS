@@ -56,6 +56,23 @@ const Nfce = (() => {
       preco: decimal(preco, br), total: Math.round(decimal(total, br) * 100) };
   }
 
+  // tPag (NT 2016.002 e posteriores) → categorias do contrato FiscalFlow v1. O troco (vTroco)
+  // sai do dinheiro; pagamentos sem valor ou "sem pagamento" (90) são ignorados.
+  const TIPOS_PAGAMENTO = { "01": "dinheiro", "03": "credito", "04": "debito", "10": "vale", "11": "vale", "12": "vale",
+    "13": "vale", "17": "pix" };
+  function formasPagamento(lista, trocoCentavos = 0) {
+    const out = [];
+    let troco = trocoCentavos;
+    for (const { tPag, vPag } of lista) {
+      if (tPag === "90" || !vPag) continue;
+      let centavos = Math.round(decimal(vPag) * 100);
+      const type = TIPOS_PAGAMENTO[tPag] || "outro";
+      if (type === "dinheiro" && troco > 0) { const d = Math.min(troco, centavos); centavos -= d; troco -= d; }
+      if (centavos > 0) out.push({ type, amount_cents: centavos });
+    }
+    return out.slice(0, 10);
+  }
+
   function xml(conteudo) {
     const doc = new DOMParser().parseFromString(conteudo, "application/xml");
     const ns = "http://www.portalfiscal.inf.br/nfe";
@@ -80,8 +97,15 @@ const Nfce = (() => {
     if (!produtos.length) throw new Error("O XML não contém produtos.");
     const emit = filho(info, "emit");
     const data = campo(ide, "dhEmi") || campo(ide, "dEmi");
-    return { chave, mercado: campo(emit, "xFant") || campo(emit, "xNome"), data: data.slice(0, 10),
+    const pag = filho(info, "pag");
+    const detalhes = Array.from(pag?.children || []).filter(e => e.localName === "detPag" && e.namespaceURI === ns)
+      .map(d => ({ tPag: campo(d, "tPag"), vPag: campo(d, "vPag") }));
+    const troco = campo(pag, "vTroco") ? Math.round(decimal(campo(pag, "vTroco")) * 100) : 0;
+    const pagamentos = formasPagamento(detalhes, troco);
+    const nota = { chave, mercado: campo(emit, "xFant") || campo(emit, "xNome"), data: data.slice(0, 10),
       total: Math.round(decimal(campo(filho(filho(info, "total"), "ICMSTot"), "vNF")) * 100), produtos };
+    if (pagamentos.length) nota.pagamentos = pagamentos;
+    return nota;
   }
 
   function html(conteudo, esperada) {
@@ -129,6 +153,6 @@ const Nfce = (() => {
     }
     return html(corpo, chave);
   }
-  return { chaveFiscal, consulta, xml, html, buscar };
+  return { chaveFiscal, consulta, xml, html, buscar, formasPagamento };
 })();
 if (typeof module !== "undefined") module.exports = Nfce;

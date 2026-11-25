@@ -256,10 +256,21 @@ function iniciarCompras({ $, el, toast }) {
       estadoFiscalFlow(partes.length ? partes.join(" · ") : "Conectado. Nada pendente.");
     } catch { estadoFiscalFlow("Fila do FiscalFlow indisponível neste aparelho."); }
     telaFiscalFlow();
+    mostrarOrcamento();
+  }
+  async function mostrarOrcamento() {
+    if (!FiscalFlow.ativo()) { $("ff-orcamento").textContent = ""; return; }
+    const categoria = FiscalFlow.lerConfig().categoria || "Supermercado";
+    try {
+      const l = await FiscalFlow.orcamento();
+      $("ff-orcamento").textContent = !l ? `Sem orçamento de "${categoria}" neste mês no FiscalFlow.`
+        : `${l.category}: disponível ${moeda(l.available_cents)} de ${moeda(l.budget_cents)} (realizado ${moeda(l.realized_cents)}, pendente ${moeda(l.pending_cents)}).`;
+    } catch { $("ff-orcamento").textContent = "Orçamento indisponível agora."; }
   }
   function telaFiscalFlow() {
     const on = FiscalFlow.ativo();
-    $("ff-entrar").hidden = on; $("ff-enviar").hidden = !on; $("ff-sair").hidden = !on;
+    $("ff-entrar").hidden = on; $("ff-enviar").hidden = !on; $("ff-sair").hidden = !on; $("ff-categoria-label").hidden = !on;
+    if (on) $("ff-categoria").value = FiscalFlow.lerConfig().categoria || "";
     if (!on) { $("ff-url").value = FiscalFlow.lerConfig().url || ""; $("ff-email").value = FiscalFlow.lerConfig().email || ""; }
   }
   $("ff-entrar").addEventListener("submit", async e => {
@@ -273,6 +284,7 @@ function iniciarCompras({ $, el, toast }) {
     finally { botao.disabled = false; }
   });
   $("ff-enviar").addEventListener("click", sincronizar);
+  $("ff-categoria").addEventListener("change", () => { FiscalFlow.definirCategoria($("ff-categoria").value); mostrarOrcamento(); });
   $("ff-sair").addEventListener("click", () => { FiscalFlow.sair(); estadoFiscalFlow("Desconectado. A fila continua guardada no aparelho."); telaFiscalFlow(); });
   window.addEventListener("online", sincronizar);
   telaFiscalFlow(); sincronizar();

@@ -37,3 +37,20 @@ test("somente HTTPS (ou servidor local de teste) e sem credenciais na URL", () =
     assert.ok(!F.urlValida(u), u);
   }
 });
+
+test("forma de pagamento da NFC-e: códigos tPag, troco descontado do dinheiro e envio no payload", () => {
+  const N = require("../www/js/nfce");
+  const f = N.formasPagamento([{ tPag: "01", vPag: "60.00" }, { tPag: "03", vPag: "20.00" }, { tPag: "17", vPag: "5.50" },
+    { tPag: "11", vPag: "1.00" }, { tPag: "99", vPag: "2.00" }, { tPag: "90", vPag: "0.00" }], 300);
+  assert.deepEqual(f, [{ type: "dinheiro", amount_cents: 5700 }, { type: "credito", amount_cents: 2000 }, { type: "pix", amount_cents: 550 },
+    { type: "vale", amount_cents: 100 }, { type: "outro", amount_cents: 200 }]);
+  assert.deepEqual(F.payload({ ...nota, pagamentos: [{ type: "debito", amount_cents: 15990 }] }).payment_methods, [{ type: "debito", amount_cents: 15990 }]);
+  assert.equal(F.payload(nota).payment_methods, undefined);
+});
+
+test("linha de orçamento por categoria, sem diferenciar maiúsculas", () => {
+  const r = { categories: [{ category: "Supermercado", budget_cents: 150000, realized_cents: 5700, pending_cents: 0, available_cents: 144300 }] };
+  assert.equal(F.linhaOrcamento(r, "supermercado").available_cents, 144300);
+  assert.equal(F.linhaOrcamento(r, "Lazer"), null);
+  assert.equal(F.linhaOrcamento(null, "x"), null);
+});
