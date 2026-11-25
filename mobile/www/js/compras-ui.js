@@ -176,8 +176,10 @@ function iniciarCompras({ $, el, toast }) {
     if (salvando || !rascunho) return;
     salvando = true; $("cp-confirmar").disabled = true; $("cp-cancelar").disabled = true;
     try {
+      const notaConfirmada = rascunho;
       await C.alterar(catAtual => C.registrar(catAtual, rascunho, escolhas));
       limpar(); status("Compra registrada. Estoque e lista atualizados."); toast("Compra registrada.");
+      if (FiscalFlow.ativo()) FiscalFlow.enfileirar(notaConfirmada).then(sincronizar).catch(() => estadoFiscalFlow("Nota não entrou na fila do FiscalFlow."));
       await atualizar();
     } catch (e) { status(e.message); toast(e.message); }
     finally { salvando = false; $("cp-confirmar").disabled = false; $("cp-cancelar").disabled = false; }
@@ -239,6 +241,42 @@ function iniciarCompras({ $, el, toast }) {
       if (atual === sessao) { pararCamera(); status("Câmera indisponível. Autorize o acesso ou use o link ou XML."); }
     }
   });
+  // ---- Integração opcional com o FiscalFlow: fila local, reenvio com backoff, sem senha guardada ----
+  function estadoFiscalFlow(msg) { $("ff-estado").textContent = msg; }
+  async function sincronizar() {
+    if (!FiscalFlow.ativo()) return;
+    try {
+      const r = await FiscalFlow.processar();
+      const partes = [];
+      if (r.enviadas) partes.push(`${r.enviadas} enviada(s)`);
+      if (r.pendentes) partes.push(`${r.pendentes} aguardando reenvio`);
+      if (r.conflitos) partes.push(`${r.conflitos} em conflito (revise no FiscalFlow)`);
+      if (r.rejeitadas) partes.push(`${r.rejeitadas} recusada(s)`);
+      if (r.sessao) partes.push("sessão expirada: conecte de novo");
+      estadoFiscalFlow(partes.length ? partes.join(" · ") : "Conectado. Nada pendente.");
+    } catch { estadoFiscalFlow("Fila do FiscalFlow indisponível neste aparelho."); }
+    telaFiscalFlow();
+  }
+  function telaFiscalFlow() {
+    const on = FiscalFlow.ativo();
+    $("ff-entrar").hidden = on; $("ff-enviar").hidden = !on; $("ff-sair").hidden = !on;
+    if (!on) { $("ff-url").value = FiscalFlow.lerConfig().url || ""; $("ff-email").value = FiscalFlow.lerConfig().email || ""; }
+  }
+  $("ff-entrar").addEventListener("submit", async e => {
+    e.preventDefault();
+    const botao = e.currentTarget.querySelector("button");
+    botao.disabled = true;
+    try {
+      await FiscalFlow.entrar($("ff-url").value, $("ff-email").value, $("ff-senha").value);
+      $("ff-senha").value = ""; toast("FiscalFlow conectado."); await sincronizar();
+    } catch (erro) { estadoFiscalFlow(erro.message); }
+    finally { botao.disabled = false; }
+  });
+  $("ff-enviar").addEventListener("click", sincronizar);
+  $("ff-sair").addEventListener("click", () => { FiscalFlow.sair(); estadoFiscalFlow("Desconectado. A fila continua guardada no aparelho."); telaFiscalFlow(); });
+  window.addEventListener("online", sincronizar);
+  telaFiscalFlow(); sincronizar();
+
   $("cp-parar").addEventListener("click", () => { pararCamera(); status(""); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) pararCamera(); });
   window.addEventListener("pagehide", pararCamera);
