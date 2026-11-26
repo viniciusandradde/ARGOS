@@ -3,8 +3,9 @@
   "use strict";
   const M = window.ArgosMotor, D = window.ARGOS_DADOS;
   const $ = (id) => document.getElementById(id);
-  const VERSAO = "1.2.2";
-  const URL_APK = "https://github.com/viniciusandradde/ARGOS/raw/ccr-d79070a6-p6sovy/mobile/releases/argos-ultima.apk";
+  const VERSAO = "1.2.3";
+  // Link do APK: o servidor da família (config.js no container) ou, sem ele, o repositório de teste.
+  const URL_APK = (window.ARGOS_CONFIG && window.ARGOS_CONFIG.apkUrl) || "https://github.com/viniciusandradde/ARGOS/raw/ccr-d79070a6-p6sovy/mobile/releases/argos-ultima.apk";
   const CAP = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor : null;
   const P = CAP ? CAP.Plugins : {};
   const RUNNER = "br.com.vsa.argos.vigia";

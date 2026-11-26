@@ -59,7 +59,7 @@ const Nfce = (() => {
   // tPag (NT 2016.002 e posteriores) → categorias do contrato FiscalFlow v1. O troco (vTroco)
   // sai do dinheiro; pagamentos sem valor ou "sem pagamento" (90) são ignorados.
   const TIPOS_PAGAMENTO = { "01": "dinheiro", "03": "credito", "04": "debito", "10": "vale", "11": "vale", "12": "vale",
-    "13": "vale", "17": "pix" };
+    "13": "vale", "17": "pix", "20": "pix" };   // 17 = Pix dinâmico, 20 = Pix estático
   function formasPagamento(lista, trocoCentavos = 0) {
     const out = [];
     let troco = trocoCentavos;
@@ -139,14 +139,20 @@ const Nfce = (() => {
         status = r.status;
         corpo = r.data;
       } else {
-        const r = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(20000) });
+        // No navegador, a SEFAZ-MS não libera CORS: servido pelo servidor da família, o app consulta pelo repasse
+        // restrito do próprio servidor (config.js define sefazProxy, ex.: "/sefaz-ms").
+        const proxy = String(window.ARGOS_CONFIG?.sefazProxy || "").replace(/\/+$/, "");
+        const u = new URL(url);
+        const alvo = proxy ? proxy + u.pathname + u.search : url;
+        const r = await fetch(alvo, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(20000) });
         status = r.status;
         corpo = await r.text();
       }
     } catch {
       throw new Error(cap?.isNativePlatform()
         ? "Não foi possível conectar à SEFAZ-MS. Confira sua conexão e toque em Consultar nota para tentar novamente."
-        : "A consulta à SEFAZ-MS falhou no navegador. Tente no app Android ou importe o XML.");
+        : window.ARGOS_CONFIG?.sefazProxy ? "A consulta à SEFAZ-MS falhou. Tente de novo ou importe o XML."
+          : "A consulta à SEFAZ-MS falhou no navegador. Tente no app Android ou importe o XML.");
     }
     if (status !== 200) {
       throw new Error("A SEFAZ-MS respondeu com HTTP " + status + ". Tente consultar a nota novamente ou importe o XML.");

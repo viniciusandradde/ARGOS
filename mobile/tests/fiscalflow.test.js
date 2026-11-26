@@ -60,3 +60,65 @@ test("destino da nota: workspace válido entra no payload; inválido é ignorado
   assert.equal(F.payload(nota, 1, "").workspace_id, undefined);
   assert.equal(F.payload(nota, 1, "../x").workspace_id, undefined);
 });
+
+// localStorage mínimo para as funções que guardam a configuração (Node não tem Web Storage por padrão).
+function armazenamento() {
+  const m = new Map();
+  globalThis.localStorage = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+}
+const resposta = (status, corpo = {}) => ({ status, ok: status >= 200 && status < 300, json: async () => corpo });
+
+test("cancelamento vai como nova revisão com status cancelled; nota ativa não leva status", () => {
+  assert.equal(F.payload(nota).status, undefined);
+  const c = F.payload(nota, 3, "", "cancelled");
+  assert.equal(c.status, "cancelled");
+  assert.equal(c.revision, 3);
+});
+
+test("testar conexão separa endereço inválido, sem resposta (rede/Tailscale) e erro HTTP", async () => {
+  assert.equal((await F.testar("http://servidor.invalid")).motivo, "endereco");
+  assert.equal((await F.testar("https://ff.invalid", async () => resposta(200))).ok, true);
+  assert.equal((await F.testar("https://ff.invalid/", async () => resposta(502))).motivo, "http");
+  assert.equal((await F.testar("https://ff.invalid", async () => { throw new TypeError("Failed to fetch"); })).motivo, "rede");
+});
+
+test("entrar mantém destino e categoria do mesmo servidor e pessoa; senha nunca é guardada", async () => {
+  armazenamento();
+  await F.entrar("https://ff.invalid/", "a@exemplo.invalid", "segredo", async () => resposta(200, { token: "t1" }), 1000);
+  F.definirDestino("abcdefghijklmno", "Família"); F.definirCategoria("Mercado");
+  await F.entrar("https://ff.invalid", "a@exemplo.invalid", "segredo", async () => resposta(200, { token: "t2" }), 2000);
+  const c = F.lerConfig();
+  assert.deepEqual([c.token, c.workspace, c.categoria, c.renovado], ["t2", "abcdefghijklmno", "Mercado", 2000]);
+  assert.ok(!JSON.stringify(c).includes("segredo"));
+  await F.entrar("https://outro.invalid", "a@exemplo.invalid", "segredo", async () => resposta(200, { token: "t3" }));
+  assert.equal(F.lerConfig().workspace, undefined, "outro servidor: destino zerado");
+  await assert.rejects(F.entrar("https://ff.invalid", "a@exemplo.invalid", "x", async () => resposta(400)), /não conferem/);
+  await assert.rejects(F.entrar("https://ff.invalid", "a@exemplo.invalid", "x", async () => { throw new TypeError(); }), /Tailscale/);
+});
+
+test("sessão renovada uma vez por dia; 401 encerra a sessão; sem rede nada muda", async () => {
+  armazenamento();
+  await F.entrar("https://ff.invalid", "a@exemplo.invalid", "s", async () => resposta(200, { token: "t1" }), 0);
+  assert.equal(await F.renovar({ agora: 3600000, fetchImpl: async () => resposta(200, { token: "x" }) }), "nada");
+  assert.equal(await F.renovar({ agora: 25 * 3600000, fetchImpl: async () => { throw new TypeError(); } }), "sem_rede");
+  assert.equal(F.lerConfig().token, "t1");
+  assert.equal(await F.renovar({ agora: 25 * 3600000, fetchImpl: async () => resposta(200, { token: "t2" }) }), "renovada");
+  assert.deepEqual([F.lerConfig().token, F.lerConfig().renovado], ["t2", 25 * 3600000]);
+  assert.equal(await F.renovar({ agora: 50 * 3600000, fetchImpl: async () => resposta(401) }), "expirada");
+  assert.equal(F.ativo(), false);
+  assert.equal(F.configurado(), true, "o endereço fica: a fila espera o novo login");
+});
+
+test("destinos: lista só com escrita; sem rede ou erro devolve null (o app mantém o destino)", async () => {
+  armazenamento();
+  await F.entrar("https://ff.invalid", "a@exemplo.invalid", "s", async () => resposta(200, { token: "t" }));
+  const itens = [{ id: "a", name: "Casa", role: "editor" }, { id: "b", name: "Leitura", role: "viewer" }];
+  assert.deepEqual(await F.destinos({ fetchImpl: async () => resposta(200, { items: itens }) }), [{ id: "a", nome: "Casa" }]);
+  assert.equal(await F.destinos({ fetchImpl: async () => { throw new TypeError(); } }), null);
+  assert.equal(await F.destinos({ fetchImpl: async () => resposta(502) }), null);
+});
+
+test("Pix estático (tPag 20) também é pix", () => {
+  const N = require("../www/js/nfce");
+  assert.deepEqual(N.formasPagamento([{ tPag: "20", vPag: "10.00" }]), [{ type: "pix", amount_cents: 1000 }]);
+});

@@ -138,13 +138,15 @@
       </form></div></section>
   <section class="p"><h2>[ FISCALFLOW (OPCIONAL) ]</h2>
     <div class="body cfg">
-      <p class="dim">Envia ao seu FiscalFlow só chave, estabelecimento, data, total e itens das notas registradas. Consumo de estoque não é enviado.</p>
+      <p class="dim">Envia ao seu FiscalFlow só chave, estabelecimento, data, total e itens das notas registradas. Consumo de estoque não é enviado. No celular, deixe a Tailscale ligada.</p>
       <div id="ff-estado" role="status" aria-live="polite"></div>
+      <div id="ff-fila"></div>
       <form id="ff-entrar" class="cfg">
         <label>Endereço do FiscalFlow<input id="ff-url" type="url" placeholder="https://…" required></label>
         <label>E-mail<input id="ff-email" type="email" autocomplete="username" required></label>
         <label>Senha<input id="ff-senha" type="password" autocomplete="current-password" required></label>
         <button type="submit">Conectar</button>
+        <button id="ff-testar" type="button">Testar conexão</button>
       </form>
       <div id="ff-orcamento" role="status" aria-live="polite"></div>
       <label id="ff-destino-label" hidden>Enviar notas para<select id="ff-destino"><option value="">Pessoal</option></select></label>
@@ -221,6 +223,7 @@
   <button type="button" data-v="config"><span class="ic">⚙</span>CONFIG</button>
 </nav>
 
+<script src="js/config.js"></script>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/dados.js"></script>
 <script src="js/motor.js"></script>

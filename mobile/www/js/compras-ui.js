@@ -10,7 +10,7 @@ function iniciarCompras({ $, el, toast }) {
   const vazio = msg => el("span", { class: "dim" }, msg);
   const linha = (a, b) => el("div", { class: "cp-linha" }, a, el("strong", {}, b));
   const status = msg => { $("cp-status").textContent = msg; };
-  let cat = C.vazio(), notas = [], rascunho = null, escolhas = [];
+  let cat = C.vazio(), notas = [], rascunho = null, escolhas = [], ffSituacoes = {}, ultimaSync = 0;
   let stream = null, timer = null, sessao = 0, leitura = 0, versaoTela = 0, salvando = false;
 
   function tabela(titulos, linhas) {
@@ -27,12 +27,34 @@ function iniciarCompras({ $, el, toast }) {
     }));
   }
 
+  // Situação da nota no FiscalFlow e as ações possíveis (enviar, cancelar). Recalculado a cada abertura.
+  const SITUACAO = { pendente: "Na fila para o FiscalFlow", cancelando: "Cancelamento na fila do FiscalFlow",
+    conflito: "Em conflito no FiscalFlow: veja a fila abaixo do login", rejeitada: "Recusada pelo FiscalFlow: veja a fila",
+    enviada: "Enviada ao FiscalFlow", cancelada: "Cancelada no FiscalFlow" };
+  async function acaoNota(fn, msg) {
+    try { const r = await fn(); toast(r === "removida" ? "Nota retirada da fila do FiscalFlow." : msg); await sincronizar(true); render(); }
+    catch (e) { toast(e.message); }
+  }
+  function acoesFiscalFlow(n) {
+    if (!FiscalFlow.configurado()) return [];
+    const s = ffSituacoes[n.chave];
+    const out = [el("span", { class: "dim" }, SITUACAO[s] || "Ainda não enviada ao FiscalFlow")];
+    if (!s) out.push(el("button", { type: "button", on: { click: () => acaoNota(() => FiscalFlow.enfileirar(n), "Nota na fila do FiscalFlow.") } }, "Enviar ao FiscalFlow"));
+    if (s === "enviada" || s === "pendente") out.push(el("button", { type: "button", on: { click: () => {
+      if (confirm("Cancelar esta nota no FiscalFlow? A compra continua registrada no ARGOS.")) acaoNota(() => FiscalFlow.cancelar(n.chave), "Cancelamento na fila do FiscalFlow.");
+    } } }, "Cancelar no FiscalFlow"));
+    return out;
+  }
+
   function historico(n) {
     const titulo = n.mercado || "NFC-e";
     const detalhe = el("details", {}, el("summary", {}, data(n.data) + " · " + titulo + " · " + moeda(n.total)));
+    const acoes = el("div", { class: "cp-ff" });
     detalhe.addEventListener("toggle", () => {
-      if (!detalhe.open || detalhe.children.length > 1) return;
-      detalhe.append(tabela(["Produto da nota", "Quantidade", "Unitário", "Total do item"],
+      if (!detalhe.open) return;
+      acoes.replaceChildren(...acoesFiscalFlow(n));
+      if (detalhe.children.length > 1) return;
+      detalhe.append(acoes, tabela(["Produto da nota", "Quantidade", "Unitário", "Total do item"],
         n.produtos.map(p => [p.nome, numero(p.quantidade) + " " + p.unidade, precoUnitario(p.preco), moeda(p.total)])),
       el("h3", {}, "Comparação na hora da compra"), comparar(n),
       vazio("O previsto considera a lista geral e a reposição até o padrão mensal."));
@@ -179,7 +201,8 @@ function iniciarCompras({ $, el, toast }) {
       const notaConfirmada = rascunho;
       await C.alterar(catAtual => C.registrar(catAtual, rascunho, escolhas));
       limpar(); status("Compra registrada. Estoque e lista atualizados."); toast("Compra registrada.");
-      if (FiscalFlow.ativo()) FiscalFlow.enfileirar(notaConfirmada).then(sincronizar).catch(() => estadoFiscalFlow("Nota não entrou na fila do FiscalFlow."));
+      // Com o FiscalFlow configurado, a nota sempre entra na fila, mesmo sem sessão ou sem rede: espera o login ou a conexão.
+      if (FiscalFlow.configurado()) FiscalFlow.enfileirar(notaConfirmada).then(() => sincronizar()).catch(() => estadoFiscalFlow("Nota não entrou na fila do FiscalFlow."));
       await atualizar();
     } catch (e) { status(e.message); toast(e.message); }
     finally { salvando = false; $("cp-confirmar").disabled = false; $("cp-cancelar").disabled = false; }
@@ -244,8 +267,10 @@ function iniciarCompras({ $, el, toast }) {
   // ---- Integração opcional com o FiscalFlow: fila local, reenvio com backoff, sem senha guardada ----
   function estadoFiscalFlow(msg) { $("ff-estado").textContent = msg; }
   async function sincronizar(manual = false) {
-    if (!FiscalFlow.ativo()) return;
+    if (!FiscalFlow.configurado()) return;
+    ultimaSync = Date.now();
     try {
+      if (FiscalFlow.ativo()) await FiscalFlow.renovar();
       const r = await FiscalFlow.processar({ forcar: manual === true });
       const partes = [];
       if (r.enviadas) partes.push(`${r.enviadas} enviada(s)`);
@@ -253,17 +278,47 @@ function iniciarCompras({ $, el, toast }) {
       if (r.conflitos) partes.push(`${r.conflitos} em conflito (revise no FiscalFlow)`);
       if (r.rejeitadas) partes.push(`${r.rejeitadas} recusada(s)`);
       if (r.sessao) partes.push("sessão expirada: conecte de novo");
-      estadoFiscalFlow(partes.length ? partes.join(" · ") : "Conectado. Nada pendente.");
+      if (r.semLogin) partes.push("entre no FiscalFlow para enviar");
+      estadoFiscalFlow(partes.length ? partes.join(" · ") : FiscalFlow.ativo() ? "Conectado. Nada pendente." : "Desconectado.");
     } catch { estadoFiscalFlow("Fila do FiscalFlow indisponível neste aparelho."); }
     telaFiscalFlow();
     await carregarDestinos();
     mostrarOrcamento();
+    await mostrarFila();
+  }
+
+  // Fila visível: o que espera envio, o que está em conflito e o que foi recusado, com as ações de cada um.
+  const ROTULO_FILA = { pendente: "aguardando envio", conflito: "já existe no FiscalFlow com outro conteúdo: confira lá",
+    rejeitada: "recusada (destino sem permissão ou dados inválidos)" };
+  async function mostrarFila() {
+    let itens = [];
+    try { itens = await FiscalFlow.listar(); ffSituacoes = await FiscalFlow.situacoes(); } catch { return; }
+    const caixa = $("ff-fila");
+    if (!itens.length) { caixa.replaceChildren(); return; }
+    const botao = (rotulo, fn) => el("button", { type: "button", on: { click: async () => { await fn(); await sincronizar(true); } } }, rotulo);
+    caixa.replaceChildren(el("h3", {}, "Fila do FiscalFlow"), el("ul", { class: "lst" }, ...itens.map(i => {
+      const p = i.payload || {};
+      const cancel = p.status === "cancelled";
+      const rotulo = cancel && i.estado === "pendente" ? "cancelamento aguardando envio" : ROTULO_FILA[i.estado] || i.estado;
+      const acoes = i.estado === "pendente"
+        ? [botao("Descartar", async () => { if (confirm("Tirar esta nota da fila? Ela não será enviada; a compra continua no ARGOS.")) await FiscalFlow.descartar(i.chave); })]
+        : [botao("Tentar de novo", () => FiscalFlow.reenviar(i.chave)), botao("Descartar", () => FiscalFlow.descartar(i.chave))];
+      return el("li", {}, linha(`${data(p.purchase_date)} · ${p.merchant || "NFC-e"}`, moeda(p.total_cents || 0)),
+        el("div", { class: "meta" }, rotulo + (i.tentativas ? ` · ${i.tentativas} tentativa(s)` : "")), el("div", { class: "cp-ff" }, ...acoes));
+    })));
   }
   async function carregarDestinos() {
     if (!FiscalFlow.ativo()) return;
     const atual = FiscalFlow.lerConfig().workspace || "";
-    const lista = await FiscalFlow.destinos().catch(() => []);
+    const lista = await FiscalFlow.destinos().catch(() => null);
     const sel = $("ff-destino");
+    if (lista === null) {
+      // Sem resposta agora (fora da Tailscale, sem rede): mantém o destino escolhido; as notas continuam indo para ele.
+      const nome = FiscalFlow.lerConfig().workspaceNome || "Workspace escolhido";
+      sel.replaceChildren(el("option", { value: "" }, "Pessoal"), ...(atual ? [el("option", { value: atual }, nome)] : []));
+      sel.value = atual;
+      return;
+    }
     sel.replaceChildren(el("option", { value: "" }, "Pessoal"), ...lista.map(w => el("option", { value: w.id }, w.nome)));
     // Destino que deixou de estar disponível (papel alterado ou acesso revogado) volta a pessoal.
     sel.value = lista.some(w => w.id === atual) ? atual : "";
@@ -283,7 +338,7 @@ function iniciarCompras({ $, el, toast }) {
     $("ff-entrar").hidden = on; $("ff-enviar").hidden = !on; $("ff-sair").hidden = !on; $("ff-categoria-label").hidden = !on;
     $("ff-destino-label").hidden = !on;
     if (on) $("ff-categoria").value = FiscalFlow.lerConfig().categoria || "";
-    if (!on) { $("ff-url").value = FiscalFlow.lerConfig().url || ""; $("ff-email").value = FiscalFlow.lerConfig().email || ""; }
+    if (!on) { $("ff-url").value = FiscalFlow.lerConfig().url || FiscalFlow.urlPadrao(); $("ff-email").value = FiscalFlow.lerConfig().email || ""; }
   }
   $("ff-entrar").addEventListener("submit", async e => {
     e.preventDefault();
@@ -296,6 +351,11 @@ function iniciarCompras({ $, el, toast }) {
     finally { botao.disabled = false; }
   });
   $("ff-enviar").addEventListener("click", () => sincronizar(true));
+  $("ff-testar").addEventListener("click", async () => {
+    const botao = $("ff-testar");
+    botao.disabled = true;
+    try { estadoFiscalFlow((await FiscalFlow.testar($("ff-url").value)).msg); } finally { botao.disabled = false; }
+  });
   $("ff-destino").addEventListener("change", () => {
     const sel = $("ff-destino");
     FiscalFlow.definirDestino(sel.value, sel.selectedOptions[0]?.textContent || "");
@@ -303,8 +363,10 @@ function iniciarCompras({ $, el, toast }) {
   });
   $("ff-categoria").addEventListener("change", () => { FiscalFlow.definirCategoria($("ff-categoria").value); mostrarOrcamento(); });
   $("ff-sair").addEventListener("click", () => { FiscalFlow.sair(); estadoFiscalFlow("Desconectado. A fila continua guardada no aparelho."); telaFiscalFlow(); });
-  window.addEventListener("online", sincronizar);
-  telaFiscalFlow(); sincronizar();
+  window.addEventListener("online", () => sincronizar());
+  // Ao voltar para o app (ou ligar a Tailscale e reabrir), tenta de novo sem esperar o próximo intervalo.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - ultimaSync > 30000) sincronizar(); });
+  telaFiscalFlow(); sincronizar(); mostrarFila();
 
   $("cp-parar").addEventListener("click", () => { pararCamera(); status(""); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) pararCamera(); });

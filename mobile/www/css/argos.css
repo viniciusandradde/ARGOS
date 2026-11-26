@@ -143,3 +143,6 @@ body.em-compras header .stat, body.em-compras header .linha2, body.em-compras .t
 
 #cp-catalogo { max-height: 45vh; overflow: auto; }
 #cp-catalogo th { position: sticky; top: 0; background: var(--panel); }
+/* FiscalFlow: situação da nota e ações (histórico e fila) */
+.cp-ff { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 10px; }
+#ff-fila h3 { margin: 10px 0 4px; }
