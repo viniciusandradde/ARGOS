@@ -60,3 +60,17 @@ test("quantidades inválidas, unidades incompatíveis e consumo acima do saldo s
   assert.throws(() => C.registrar(cat, nota, [C.idProduto("A", "KG")]));
   assert.equal(cat.produtos[C.idProduto("A", "KG")].saldo, 1);
 });
+
+test("backup de compras: só o formato do ARGOS, catálogo válido e notas com chave única", () => {
+  const C = require("../www/js/compras");
+  const nota = { chave: "50261100000000000100650010000000011000000000", produtos: [] };
+  const ok = C.validarBackup({ formato: "argos-compras", versao: 1, catalogo: { produtos: {}, vinculos: {} }, notas: [nota] });
+  assert.equal(ok.notas.length, 1);
+  assert.deepEqual(C.validarBackup({ formato: "argos-compras", versao: 1, catalogo: { produtos: {} }, notas: [] }).catalogo.vinculos, {});
+  for (const ruim of [null, {}, { formato: "outro", versao: 1 }, { formato: "argos-compras", versao: 2 },
+    { formato: "argos-compras", versao: 1, catalogo: { produtos: [] }, notas: [] },
+    { formato: "argos-compras", versao: 1, catalogo: { produtos: {} }, notas: [{ chave: "1" }] },
+    { formato: "argos-compras", versao: 1, catalogo: { produtos: {} }, notas: [nota, nota] }]) {
+    assert.throws(() => C.validarBackup(ruim));
+  }
+});

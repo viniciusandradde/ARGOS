@@ -154,6 +154,20 @@
       <button id="ff-enviar" type="button" hidden>Enviar pendentes agora</button>
       <button id="ff-sair" type="button" hidden>Desconectar</button>
     </div></section>
+  <section class="p"><h2>[ BACKUP DAS COMPRAS ]</h2>
+    <div class="body cfg">
+      <p class="dim">Guarde uma cópia do estoque, das listas e do histórico, ou leve para outro aparelho ou app. Importar substitui as compras deste aparelho.</p>
+      <div id="cp-backup-estado" role="status" aria-live="polite"></div>
+      <div class="cp-ff">
+        <button id="cp-exportar" type="button">Baixar backup</button>
+        <button id="cp-copiar" type="button">Copiar backup</button>
+      </div>
+      <label>Importar arquivo de backup<input id="cp-importar" type="file" accept="application/json,.json"></label>
+      <details><summary>Colar backup copiado</summary>
+        <textarea id="cp-colar" rows="4" aria-label="Backup colado"></textarea>
+        <button id="cp-colar-ok" type="button">Importar texto colado</button>
+      </details>
+    </div></section>
   <section class="p"><h2>[ LISTA PADRÃO DO MÊS ]</h2>
     <div class="body" id="cp-mensal"></div></section>
   <section class="p wide"><h2>[ HISTÓRICO DE COMPRAS ]</h2><div class="body" id="cp-historico"></div></section>

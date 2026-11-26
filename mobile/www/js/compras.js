@@ -117,6 +117,40 @@ const Compras = (() => {
       tx.onabort = () => reject(tx.error);
     });
   }
-  return { unidade, idProduto, falta, vazio, ajustar, sugerirVinculo, registrar, alterar, ler };
+  // ---- Backup: estoque, listas e histórico deste aparelho, para guardar ou levar a outro aparelho/app ----
+  const FORMATO = "argos-compras";
+  async function exportar(agora = new Date()) {
+    const { cat, notas } = await ler();
+    return { formato: FORMATO, versao: 1, exportado_em: agora.toISOString(), catalogo: cat, notas };
+  }
+  function validarBackup(obj) {
+    if (!obj || obj.formato !== FORMATO || obj.versao !== 1) throw new Error("Este arquivo não é um backup de compras do ARGOS.");
+    const c = obj.catalogo;
+    if (!c || typeof c !== "object" || !c.produtos || typeof c.produtos !== "object" || Array.isArray(c.produtos)) {
+      throw new Error("Backup sem catálogo de produtos válido.");
+    }
+    if (!Array.isArray(obj.notas) || obj.notas.length > 20000) throw new Error("Backup com lista de notas inválida.");
+    const chaves = new Set();
+    for (const n of obj.notas) {
+      if (!/^\d{44}$/.test(n?.chave || "") || chaves.has(n.chave)) throw new Error("Backup com nota sem chave válida ou repetida.");
+      chaves.add(n.chave);
+    }
+    return { catalogo: { produtos: c.produtos, vinculos: c.vinculos && typeof c.vinculos === "object" ? c.vinculos : {} }, notas: obj.notas };
+  }
+  // Substitui as compras deste aparelho pelo conteúdo do backup (uma transação: tudo ou nada).
+  async function restaurar(obj) {
+    const dados = validarBackup(obj);
+    const db = await banco();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(["catalogo", "notas"], "readwrite");
+      tx.objectStore("catalogo").put(dados.catalogo, 1);
+      const notas = tx.objectStore("notas");
+      notas.clear();
+      for (const n of dados.notas) notas.put(n);
+      tx.oncomplete = () => resolve(dados.notas.length);
+      tx.onabort = () => reject(tx.error || new Error("Falha ao restaurar o backup."));
+    });
+  }
+  return { unidade, idProduto, falta, vazio, ajustar, sugerirVinculo, registrar, alterar, ler, exportar, validarBackup, restaurar };
 })();
 if (typeof module !== "undefined") module.exports = Compras;

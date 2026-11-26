@@ -4,7 +4,8 @@ android {
     namespace = "br.com.vsa.argos"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "br.com.vsa.argos"
+        // Variante instalável ao lado do app oficial (ex.: -PargosAppId=br.com.vsa.argos.familia); padrão: o oficial.
+        applicationId (project.findProperty("argosAppId") ?: "br.com.vsa.argos")
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 10203

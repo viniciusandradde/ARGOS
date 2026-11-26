@@ -368,6 +368,38 @@ function iniciarCompras({ $, el, toast }) {
   document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - ultimaSync > 30000) sincronizar(); });
   telaFiscalFlow(); sincronizar(); mostrarFila();
 
+  // ---- Backup das compras (arquivo no navegador; texto copiado no app, que não baixa arquivos) ----
+  const estadoBackup = msg => { $("cp-backup-estado").textContent = msg; };
+  async function textoBackup() { return JSON.stringify(await C.exportar()); }
+  $("cp-exportar").addEventListener("click", async () => {
+    try {
+      const blob = new Blob([await textoBackup()], { type: "application/json" });
+      const a = el("a", { href: URL.createObjectURL(blob), download: `argos-compras-${new Date().toISOString().slice(0, 10)}.json` });
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      estadoBackup("Backup gerado. No app Android, use Copiar backup.");
+    } catch (e) { estadoBackup(e.message); }
+  });
+  $("cp-copiar").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(await textoBackup()); estadoBackup("Backup copiado. Cole num lugar seguro (nota, e-mail para você)."); }
+    catch { estadoBackup("Não foi possível copiar neste aparelho. Use Baixar backup."); }
+  });
+  async function restaurarTexto(texto) {
+    let obj;
+    try { obj = JSON.parse(texto); } catch { estadoBackup("O conteúdo não é um backup válido."); return; }
+    try { C.validarBackup(obj); } catch (e) { estadoBackup(e.message); return; }
+    if (!confirm(`Substituir as compras deste aparelho por ${obj.notas.length} nota(s) do backup?`)) return;
+    try { const n = await C.restaurar(obj); estadoBackup(`Backup restaurado: ${n} nota(s).`); toast("Backup restaurado."); await atualizar(); }
+    catch (e) { estadoBackup(e.message); }
+  }
+  $("cp-importar").addEventListener("change", async () => {
+    const arquivo = $("cp-importar").files[0];
+    if (!arquivo) return;
+    if (arquivo.size > 20 * 1024 * 1024) { estadoBackup("Arquivo grande demais para um backup de compras."); return; }
+    await restaurarTexto(await arquivo.text());
+    $("cp-importar").value = "";
+  });
+  $("cp-colar-ok").addEventListener("click", async () => { await restaurarTexto($("cp-colar").value); $("cp-colar").value = ""; });
+
   $("cp-parar").addEventListener("click", () => { pararCamera(); status(""); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) pararCamera(); });
   window.addEventListener("pagehide", pararCamera);
