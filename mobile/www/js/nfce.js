@@ -144,7 +144,8 @@ const Nfce = (() => {
         const proxy = String(window.ARGOS_CONFIG?.sefazProxy || "").replace(/\/+$/, "");
         const u = new URL(url);
         const alvo = proxy ? proxy + u.pathname + u.search : url;
-        const r = await fetch(alvo, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(20000) });
+        const r = await fetch(alvo, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(20000),
+          ...(proxy ? { headers: { "X-Argos-Consulta": "1" } } : {}) });
         status = r.status;
         corpo = await r.text();
       }
